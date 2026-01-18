@@ -1,0 +1,180 @@
+# ============================================================================
+# MCMC - Configuración por Defecto
+# ============================================================================
+# Este archivo contiene los parámetros por defecto para el modelo MCMC
+# (Modelo Cosmológico de Múltiples Colapsos).
+#
+# Para personalizar, copie este archivo y modifique los valores necesarios.
+# Use: python scripts/run_fit_emcee.py --config mi_config.yaml
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Constantes Físicas y Cosmológicas
+# ----------------------------------------------------------------------------
+cosmology:
+  # Constante de Hubble [km/s/Mpc]
+  H0: 67.4
+
+  # Fracciones de densidad (Planck 2018)
+  Omega_m0: 0.315      # Materia total (bariones + CDM)
+  Omega_b0: 0.0493     # Bariones
+  Omega_r0: 9.0e-5     # Radiación
+  Omega_k0: 0.0        # Curvatura (universo plano)
+
+  # Horizonte de sonido al drag epoch [Mpc]
+  r_d: 147.09
+
+  # Temperatura CMB [K]
+  T_cmb: 2.7255
+
+# ----------------------------------------------------------------------------
+# Rejilla Entrópica S
+# ----------------------------------------------------------------------------
+s_grid:
+  S_min: 0.010       # Inicio (coincide con S1)
+  S_max: 1.001       # Final (coincide con S4)
+  dS: 1.0e-3         # Paso de la rejilla
+
+  # Sellos ontológicos
+  seals:
+    S1: 0.010        # Primer sello: inicio post-geométrico
+    S2: 0.100        # Segundo sello: transición temprana
+    S3: 1.000        # Tercer sello: transición tardía
+    S4: 1.001        # Sello final: normalización (hoy)
+
+# ----------------------------------------------------------------------------
+# Parámetros del Motor de Fondo
+# ----------------------------------------------------------------------------
+background:
+  # Función C(S) - expansión
+  C_early: 0.5           # Régimen rígido temprano
+  C_late: 1.0            # Régimen tardío
+  C_trans_center: 0.5    # Centro de la transición
+  C_trans_width: 0.1     # Ancho de la transición
+
+  # Función T(S) - cronificación (Ley de Cronos)
+  T_base: 1.0
+  T_peak_S1: 0.2
+  T_peak_S2: 0.3
+  T_peak_S3: 0.1
+  T_peak_width: 0.02
+
+  # Campo tensional Φ_ten(S) - Campo de Adrián
+  Phi_amplitude: 0.5
+  Phi_decay_rate: 2.0
+  Phi_bump_S1: 0.3
+  Phi_bump_S2: 0.2
+  Phi_bump_S3: 0.1
+  Phi_bump_width: 0.02
+
+# ----------------------------------------------------------------------------
+# Canal Indeterminado ρ_id - Modelo Paramétrico (Nivel A)
+# ----------------------------------------------------------------------------
+rho_id_parametric:
+  Omega_id0: 0.685       # Fracción de ρ_id hoy
+  z_trans: 0.5           # Redshift de transición
+  epsilon: 0.01          # Pendiente del plateau
+  delta_z_trans: 0.1     # Suavizado de la transición
+  gamma: 0.0             # Factor de dilución
+
+# ----------------------------------------------------------------------------
+# Canal Indeterminado ρ_id - Modelo Ontológico (Nivel B)
+# ----------------------------------------------------------------------------
+rho_id_ontological:
+  rho_id_init: 0.01      # Condición inicial
+  gamma: 1.0             # Tasa de dilución
+  delta_amplitude: 1.0   # Amplitud de la fuente
+  delta_S_peak: 0.5      # Centro del pico
+  delta_width: 0.2       # Ancho del pico
+  coupling_phi: 0.1      # Acoplamiento con Φ_ten
+
+# ----------------------------------------------------------------------------
+# Canal Latente ρ_lat
+# ----------------------------------------------------------------------------
+rho_lat:
+  rho_lat_init: 0.001
+  kappa_amplitude: 0.5   # Amplitud de acumulación
+  kappa_S_center: 0.3    # Centro de acumulación
+  kappa_width: 0.1       # Ancho de acumulación
+  eta_amplitude: 0.3     # Amplitud de liberación
+  eta_S_onset: 0.7       # Inicio de liberación
+  eta_rate: 5.0          # Tasa de crecimiento
+  max_fraction_recomb: 0.05  # Restricción CMB
+
+# ----------------------------------------------------------------------------
+# Ecuación de Estado
+# ----------------------------------------------------------------------------
+equation_of_state:
+  w0: -1.0               # EoS hoy
+  wa: 0.0                # Evolución (CPL)
+  cs2: 1.0               # Velocidad del sonido al cuadrado
+
+# ----------------------------------------------------------------------------
+# Configuración del MCMC Bayesiano
+# ----------------------------------------------------------------------------
+mcmc:
+  n_walkers: 32          # Número de walkers
+  n_steps: 5000          # Pasos por walker
+  n_burnin: 1000         # Burn-in a descartar
+  thin: 1                # Factor de thinning
+  progress: true         # Mostrar barra de progreso
+
+# ----------------------------------------------------------------------------
+# Likelihood
+# ----------------------------------------------------------------------------
+likelihood:
+  use_bao: true          # Incluir BAO
+  use_Hz: true           # Incluir H(z)
+  use_sne: true          # Incluir SNe Ia
+  marginalize_M: true    # Marginalizar magnitud absoluta
+
+# ----------------------------------------------------------------------------
+# Datasets
+# ----------------------------------------------------------------------------
+datasets:
+  bao: "combined"        # 'boss', 'eboss', '6dfgs', 'combined'
+  Hz: "cosmic_chronometers"  # 'cosmic_chronometers', 'combined'
+  sne: "pantheon_binned"     # 'pantheon_binned', 'pantheon_simulated'
+
+# ----------------------------------------------------------------------------
+# Salida
+# ----------------------------------------------------------------------------
+output:
+  directory: "results"
+  prefix: "mcmc_fit"
+  save_chains: true
+  save_plots: true
+  plot_format: "png"     # 'png', 'pdf'
+
+# ----------------------------------------------------------------------------
+# Boltzmann (CLASS/CAMB)
+# ----------------------------------------------------------------------------
+boltzmann:
+  code: "class"          # 'class' o 'camb'
+
+  # Banderas específicas del MCMC para CLASS
+  class_flags:
+    use_L_rel: true
+    eps_L_rel: 0.01
+    ztrans_L_rel: 0.5
+    dz_L_rel: 0.1
+    use_id_fluid: true
+    c_s2_id: 1.0
+
+# ----------------------------------------------------------------------------
+# N-body Cronos (para versiones futuras)
+# ----------------------------------------------------------------------------
+cronos:
+  enabled: false
+  eta_timestep: 0.01
+  rho_critical: 200.0
+  alpha_friction: 1.0
+
+# ----------------------------------------------------------------------------
+# Lattice (opcional)
+# ----------------------------------------------------------------------------
+lattice:
+  enabled: false
+  N_lattice: 16
+  beta_range: [5.5, 6.5]
+  n_configs: 100
