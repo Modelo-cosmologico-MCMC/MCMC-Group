@@ -1,152 +1,23 @@
-# ============================================================================
-# MCMC - Configuración por Defecto
-# ============================================================================
-# Este archivo contiene los parámetros por defecto para el modelo MCMC
-# (Modelo Cosmológico de Múltiples Colapsos).
-#
-# Compatible con starter kit v0.1 y extensiones futuras.
-# ============================================================================
-
-cosmology:
-  # Normalización
-  H0: 67.4                  # km/s/Mpc
-  c_km_s: 299792.458        # velocidad de la luz
-
-  # Densidades (Planck 2018)
-  Omega_m0: 0.315           # Materia total (bariones + CDM)
-  Omega_b0: 0.0493          # Bariones
-  Omega_r0: 9.0e-5          # Radiación
-  Omega_k0: 0.0             # Curvatura (universo plano)
-
-  # Horizonte de sonido [Mpc]
-  r_d: 147.09
-
-  # En v0.1, Omega_DE se induce vía rho_id (paramétrico) si se activa.
-  use_parametric_rho_id: true
-
-grid:
-  S_min: 0.010
-  S_max: 1.001
-  dS: 1.0e-3
-  seals:
-    S1: 0.010
-    S2: 0.100
-    S3: 1.000
-    S4: 1.001
-
 background:
-  # v0.1 usa funciones placeholder. En v0.2+ se sustituyen por receta definitiva.
+  H0: 67.4
   C0: 1.0
-  phi_amp: 0.0
+  C1: 1.0
+  S_c: 1.0
+  width: 0.03
   T0: 1.0
+  phi_amp: 0.0
 
-  # Parámetros extendidos (para uso futuro)
-  C_early: 0.5
-  C_late: 1.0
-  C_trans_center: 0.5
-  C_trans_width: 0.1
-  T_base: 1.0
-  T_peak_S1: 0.2
-  T_peak_S2: 0.3
-  T_peak_S3: 0.1
-  T_peak_width: 0.02
-  Phi_amplitude: 0.5
-  Phi_decay_rate: 2.0
-  Phi_bump_S1: 0.3
-  Phi_bump_S2: 0.2
-  Phi_bump_S3: 0.1
-  Phi_bump_width: 0.02
+rho_id:
+  rho0: 0.7
+  z_trans: 0.6
+  eps: 0.05
 
-rho_id_parametric:
-  enabled: true
-  rho0: 1.0
-  z_trans: 2.0
-  epsilon: 0.02
-  dz: 0.2                   # anchura transición para suavizar (tanh)
-  # Parámetros extendidos
-  Omega_id0: 0.685
-  delta_z_trans: 0.1
-  gamma: 0.0
+run:
+  nwalkers: 32
+  nsteps: 500
+  seed: 42
 
-rho_id_ontological:
-  rho_id_init: 0.01
-  gamma: 1.0
-  delta_amplitude: 1.0
-  delta_S_peak: 0.5
-  delta_width: 0.2
-  coupling_phi: 0.1
-
-rho_lat:
-  rho_lat_init: 0.001
-  kappa_amplitude: 0.5
-  kappa_S_center: 0.3
-  kappa_width: 0.1
-  eta_amplitude: 0.3
-  eta_S_onset: 0.7
-  eta_rate: 5.0
-  max_fraction_recomb: 0.05
-
-equation_of_state:
-  w0: -1.0
-  wa: 0.0
-  cs2: 1.0
-
-inference:
-  # Ajuste emcee (starter kit compatible)
-  parameters:
-    - H0
-    - Omega_m0
-    - z_trans
-    - epsilon
-  walkers: 32
-  steps: 800
-  burn: 200
-  seed: 123
-
-toy_data:
-  enabled: true
-  # puntos sintéticos para smoke test
-  hz:
-    z: [0.1, 0.3, 0.6, 1.0]
-    sigma: [5.0, 5.0, 6.0, 8.0]
-  sne:
-    z: [0.05, 0.2, 0.5, 0.9]
-    sigma_mu: [0.12, 0.12, 0.14, 0.16]
-  bao:
-    z: [0.35, 0.57]
-    sigma_dv: [0.03, 0.03]
-
-likelihood:
-  use_bao: true
-  use_Hz: true
-  use_sne: true
-  marginalize_M: true
-
-output:
-  directory: "results"
-  prefix: "mcmc_fit"
-  save_chains: true
-  save_plots: true
-  plot_format: "png"
-
-boltzmann:
-  code: "class"
-  class_flags:
-    use_L_rel: true
-    eps_L_rel: 0.01
-    ztrans_L_rel: 0.5
-    dz_L_rel: 0.1
-    use_id_fluid: true
-    c_s2_id: 1.0
-
-cronos:
-  enabled: false
-  eta_timestep: 0.01
-  rho_critical: 200.0
-  alpha_friction: 1.0
-
-lattice:
-  enabled: false
-  N_lattice: 16
-  beta_range: [5.5, 6.5]
-  n_configs: 100
+data:
+  hz: "data/demo/hz.csv"
+  sne: "data/demo/sne.csv"
+  bao: "data/demo/bao.csv"

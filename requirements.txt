@@ -1,21 +1,9 @@
-# MCMC - Modelo Cosmologico de Multiples Colapsos
-# Dependencias minimas para ejecutar el codigo
-
-# Core
-numpy>=1.21.0
-scipy>=1.7.0
+numpy>=1.23
+scipy>=1.9
 pyyaml>=6.0
-
-# Inferencia bayesiana
-emcee>=3.1.0
-
-# Visualizacion
-matplotlib>=3.5.0
-corner>=2.2.0
-
-# Almacenamiento de cadenas (opcional)
-h5py>=3.0.0
-
-# Testing (solo para desarrollo)
-pytest>=7.0.0
-pytest-cov>=4.0.0
+pandas>=2.0
+matplotlib>=3.7
+emcee>=3.1
+pytest>=7.4
+pytest-cov>=4.1
+ruff>=0.5
