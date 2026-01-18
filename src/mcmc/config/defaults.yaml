@@ -12,12 +12,33 @@ rho_id:
   z_trans: 0.6
   eps: 0.05
 
+model:
+  backend: effective
+
+effective:
+  H0: 67.4
+  rho_b0: 0.30
+  rd: 147.0
+  M: -19.3
+  rho_id:
+    rho0: 0.70
+    z_trans: 1.00
+    eps: 0.05
+
+block1:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
+
 run:
   nwalkers: 32
   nsteps: 500
   seed: 42
 
 data:
-  hz: "data/demo/hz.csv"
-  sne: "data/demo/sne.csv"
-  bao: "data/demo/bao.csv"
+  hz: data/demo/hz.csv
+  sne: data/demo/sne.csv
+  bao: data/demo/bao.csv
+  hz_cov: null
+  sne_cov: null
+  bao_cov: null

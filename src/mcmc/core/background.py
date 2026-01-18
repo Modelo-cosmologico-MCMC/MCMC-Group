@@ -1,79 +1,94 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import numpy as np
+
+from mcmc.core.cronoshapes import (
+    CronosShapeParams,
+    C_of_S as C_of_S_shapes,
+    T_of_S as T_of_S_shapes,
+    N_of_S,
+    Phi_ten_of_S,
+)
 
 
 @dataclass
 class BackgroundParams:
     """
-    Parametros minimos del fondo.
-    Esta version es un MVP estable; puedes reemplazar C(S), T(S), Phi_ten(S)
-    por tu receta completa sin romper la API.
+    Parametros del nucleo Bloque I.
+
+    Integra a(S), t_rel(S) y produce z(S), H(S) usando la Ley de Cronos
+    refinada con formas C(S), T(S), Phi_ten(S), N(S).
+
+    Attributes:
+        H0: Constante de Hubble [km/s/Mpc]
+        shapes: Parametros de las formas de Cronos
     """
     H0: float = 67.4  # km/s/Mpc
-
-    # Perfil suave: transicion en torno a S3 (ejemplo)
-    C0: float = 1.0
-    C1: float = 1.0
-    S_c: float = 1.0
-    width: float = 0.03
-
-    # Cronificacion (tiempo relativo)
-    T0: float = 1.0
-
-    # Tensional: controla N(S)=exp(Phi_ten)
-    phi_amp: float = 0.0  # empieza neutro para estabilidad
+    shapes: CronosShapeParams = field(default_factory=CronosShapeParams)
 
 
-def _smoothstep(x: np.ndarray) -> np.ndarray:
-    # sigmoide estable
-    return 0.5 * (1.0 + np.tanh(x))
-
-
-def C_of_S(S: np.ndarray, p: BackgroundParams) -> np.ndarray:
-    # C(S) ~ constante (MVP), con ligera transicion si se desea.
-    x = (S - p.S_c) / max(p.width, 1e-9)
-    return p.C0 + (p.C1 - p.C0) * _smoothstep(x)
-
-
-def Phi_ten_of_S(S: np.ndarray, p: BackgroundParams) -> np.ndarray:
-    # MVP: phi ~ 0 (N=1). Puedes introducir picos por sellos mas adelante.
-    return p.phi_amp * np.zeros_like(S)
-
-
-def T_of_S(S: np.ndarray, p: BackgroundParams) -> np.ndarray:
-    return p.T0 * np.ones_like(S)
-
-
-def solve_background(S: np.ndarray, p: BackgroundParams):
+def solve_background(
+    S: np.ndarray,
+    p: BackgroundParams,
+    *,
+    S1: float = 0.010,
+    S2: float = 0.100,
+    S3: float = 1.000,
+    S4: float = 1.001,
+) -> dict:
     """
-    Integra desde S4 hacia atras imponiendo normalizacion:
-      a(S4)=1, t_rel(S4)=0, H(S4)=H0
-    """
-    C = C_of_S(S, p)
-    Phi = Phi_ten_of_S(S, p)
-    N = np.exp(Phi)  # N(S)
-    T = T_of_S(S, p)
+    Integra las ecuaciones de fondo desde S4 hacia atras.
 
+    Ecuaciones:
+        d(ln a)/dS = C(S)
+        d(t_rel)/dS = T(S) * N(S)
+
+    Normalizacion en S4:
+        a(S4) = 1
+        t_rel(S4) = 0
+        H(S4) = H0
+
+    Definiciones derivadas:
+        z(S) = 1/a(S) - 1
+        H(S) = H0 * C(S)/C(S4)
+
+    Args:
+        S: Array de valores de entropia (debe incluir S4 al final)
+        p: Parametros del fondo
+        S1, S2, S3, S4: Sellos ontologicos
+
+    Returns:
+        Diccionario con S, a, z, t_rel, H, C, T, N, Phi_ten
+    """
+    S = np.asarray(S, dtype=float)
+
+    # Calcular formas de Cronos
+    C = C_of_S_shapes(S, p.shapes, S2=S2, S3=S3)
+    T = T_of_S_shapes(S, p.shapes, S1=S1, S2=S2, S3=S3)
+    N = N_of_S(S, p.shapes, S1=S1, S2=S2, S3=S3)
+    Phi = Phi_ten_of_S(S, p.shapes, S1=S1, S2=S2, S3=S3)
+
+    # Arrays para integracion
     a = np.zeros_like(S, dtype=float)
     t = np.zeros_like(S, dtype=float)
 
+    # Normalizacion en S4 (ultimo punto)
     a[-1] = 1.0
     t[-1] = 0.0
 
     # Integracion hacia atras (S decrece)
     for i in range(len(S) - 2, -1, -1):
         dS = S[i + 1] - S[i]
-        # d ln a / dS = C(S)  =>  ln a(S_i) = ln a(S_{i+1}) - C*dS
+        # d(ln a)/dS = C(S) => ln a(S_i) = ln a(S_{i+1}) - C*dS
         a[i] = a[i + 1] * np.exp(-C[i + 1] * dS)
         # dt/dS = T*N
         t[i] = t[i + 1] - (T[i + 1] * N[i + 1]) * dS
 
+    # Redshift
     z = 1.0 / a - 1.0
 
-    # En este MVP, escalamos H con C para mantener coherencia con la normalizacion.
-    # En la version completa, sustituye por tu Friedmann MCMC (rho_id/rho_lat).
+    # H(S) = H0 * C(S)/C(S4) - nucleo computacional
     H = p.H0 * (C / C[-1])
 
     return {
@@ -85,4 +100,5 @@ def solve_background(S: np.ndarray, p: BackgroundParams):
         "C": C,
         "T": T,
         "N": N,
+        "Phi_ten": Phi,
     }

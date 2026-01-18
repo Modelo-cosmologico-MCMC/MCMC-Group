@@ -125,6 +125,14 @@ figures/
 data/raw/
 data/external/
 
+# Real datasets (not committed)
+data/real/*
+!data/real/.gitkeep
+!data/real/README.md
+
+# Results/outputs (keep placeholders)
+!results/.gitkeep
+
 # CLASS/CAMB outputs
 *.dat
 *.pk
