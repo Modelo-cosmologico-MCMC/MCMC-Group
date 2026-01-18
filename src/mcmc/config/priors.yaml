@@ -1,5 +1,17 @@
-# Priors uniformes (MVP). Ajusta segun tu calibracion.
+# Priors uniformes (Bloque II efectivo)
+# Ajusta segun tu calibracion
+
+# Cosmologia
 H0: [50.0, 90.0]
+
+# Materia efectiva
+rho_b0: [0.0, 5.0]
+
+# Canal indeterminado rho_id
 rho0: [0.0, 5.0]
 z_trans: [0.0, 5.0]
 eps: [0.0, 1.0]
+
+# Nuisance parameters
+rd: [80.0, 220.0]
+M: [-20.5, -18.0]

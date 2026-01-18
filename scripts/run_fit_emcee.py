@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import yaml
 import numpy as np
 import pandas as pd
 
-from mcmc.core.s_grid import create_default_grid
-from mcmc.core.background import BackgroundParams, solve_background
-from mcmc.core.mapping import make_interpolators
-from mcmc.core.checks import assert_background_ok
-
-from mcmc.channels.rho_id_parametric import RhoIDParams
+from mcmc.core.friedmann_effective import EffectiveParams, H_of_z
+from mcmc.channels.rho_id_refined import RhoIDRefinedParams
 from mcmc.observables.distances import distance_modulus
+from mcmc.observables.bao_distances import dv_over_rd
 from mcmc.observables.likelihoods import loglike_total
 from mcmc.inference.emcee_fit import run_emcee
 from mcmc.inference.postprocess import summarize_chain
 
 
-def load_demo_csv(path: str, kind: str) -> dict:
+def load_csv(path: str, kind: str) -> dict:
+    """Carga dataset CSV segun tipo."""
     df = pd.read_csv(path)
     if kind == "hz":
         return {"z": df["z"].to_numpy(), "H": df["H"].to_numpy(), "sigma": df["sigma"].to_numpy()}
@@ -25,60 +24,51 @@ def load_demo_csv(path: str, kind: str) -> dict:
         return {"z": df["z"].to_numpy(), "mu": df["mu"].to_numpy(), "sigma": df["sigma"].to_numpy()}
     if kind == "bao":
         return {"z": df["z"].to_numpy(), "dv_rd": df["dv_rd"].to_numpy(), "sigma": df["sigma"].to_numpy()}
-    raise ValueError("kind desconocido")
+    raise ValueError(f"kind desconocido: {kind}")
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="src/mcmc/config/defaults.yaml")
-    ap.add_argument("--nsteps", type=int, default=None)
-    ap.add_argument("--nwalkers", type=int, default=None)
+    ap = argparse.ArgumentParser(
+        description="Ajuste MCMC con modelo efectivo Bloque II"
+    )
+    ap.add_argument("--config", default="src/mcmc/config/defaults.yaml",
+                    help="Archivo de configuracion YAML")
+    ap.add_argument("--nsteps", type=int, default=None,
+                    help="Numero de pasos MCMC")
+    ap.add_argument("--nwalkers", type=int, default=None,
+                    help="Numero de walkers")
+    ap.add_argument("--outdir", default="results/fit_effective",
+                    help="Directorio de salida")
     args = ap.parse_args()
 
-    cfg = yaml.safe_load(open(args.config, "r", encoding="utf-8"))
+    # Cargar configuracion
+    cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    pri = yaml.safe_load(Path("src/mcmc/config/priors.yaml").read_text(encoding="utf-8"))
 
-    # --- Fondo
-    bcfg = cfg["background"]
-    bp = BackgroundParams(**bcfg)
+    eff = cfg["effective"]
+    run = cfg["run"]
+    data = cfg["data"]
 
-    grid, S = create_default_grid()
-    sol = solve_background(S, bp)
-    assert_background_ok(sol)
-
-    # Interpolador H(z) desde la tabla del fondo
-    # Nota: sol["z"] crece cuando a decrece; aseguramos monotonicidad en interpolacion
-    z_arr = sol["z"]
-    H_arr = sol["H"]
-    H_of_z = make_interpolators(z_arr, H_arr)
-
-    # --- Datos demo
+    # Cargar datasets
     datasets = {
-        "hz": load_demo_csv(cfg["data"]["hz"], "hz"),
-        "sne": load_demo_csv(cfg["data"]["sne"], "sne"),
-        "bao": load_demo_csv(cfg["data"]["bao"], "bao"),
+        "hz": load_csv(data["hz"], "hz"),
+        "sne": load_csv(data["sne"], "sne"),
+        "bao": load_csv(data["bao"], "bao"),
     }
 
-    # Modelo observable minimo:
-    # - H(z) viene del fondo (MVP)
-    # - mu(z) usa distancias integrando 1/H
-    # - DV/rd: proxy simple con H(z) (solo para demo; sustituye por DV real)
-    def H_model(z):
-        return np.asarray(H_of_z(z), float)
+    # Crear directorio de salida
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / "config_used.yaml").write_text(
+        yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8"
+    )
 
-    def mu_model(z):
-        return distance_modulus(np.asarray(z, float), H_model(z))
-
-    def dvrd_model(z):
-        z = np.asarray(z, float)
-        # Proxy demo: 1/H(z) reescalado (no fisico; evita dependencias externas)
-        return 100.0 / np.maximum(H_model(z), 1e-9)
-
-    # --- Priors MVP
-    pri = yaml.safe_load(open("src/mcmc/config/priors.yaml", "r", encoding="utf-8"))
-
+    # Priors uniformes
     def logprior(theta):
-        H0, rho0, zt, eps = theta
+        H0, rho_b0, rho0, zt, eps, rd, M = theta
         if not (pri["H0"][0] <= H0 <= pri["H0"][1]):
+            return -np.inf
+        if not (pri["rho_b0"][0] <= rho_b0 <= pri["rho_b0"][1]):
             return -np.inf
         if not (pri["rho0"][0] <= rho0 <= pri["rho0"][1]):
             return -np.inf
@@ -86,56 +76,96 @@ def main():
             return -np.inf
         if not (pri["eps"][0] <= eps <= pri["eps"][1]):
             return -np.inf
+        if not (pri["rd"][0] <= rd <= pri["rd"][1]):
+            return -np.inf
+        if not (pri["M"][0] <= M <= pri["M"][1]):
+            return -np.inf
         return 0.0
 
-    # En el MVP, solo ajustamos H0 y parametros rho_id, pero no reinyectamos rho_id aun en H(z).
-    # Esto es deliberado: deja el pipeline emcee estable. El siguiente paso es acoplar rho_id -> Friedmann.
     def logprob(theta):
         lp = logprior(theta)
         if not np.isfinite(lp):
             return -np.inf
 
-        H0, rho0, zt, eps = theta
+        H0, rho_b0, rho0, zt, eps, rd, M = theta
 
-        # actualiza H0 del fondo en caliente (sin reintegrar; MVP)
-        # Para el modelo completo: reintegrar solve_background con H0 y recomputar H_of_z.
-        # Aqui solo aplicamos escala lineal a H(z) para mantener estabilidad.
-        scale = H0 / bp.H0
+        # Construir parametros del modelo efectivo
+        rid = RhoIDRefinedParams(rho0=float(rho0), z_trans=float(zt), eps=float(eps))
+        p = EffectiveParams(H0=float(H0), rho_b0=float(rho_b0), rho_id=rid)
 
-        def H_model_local(z):
-            return scale * H_model(z)
+        # Modelo observable (Bloque II efectivo)
+        def H_model(z):
+            return H_of_z(np.asarray(z, float), p)
 
-        def mu_model_local(z):
-            return distance_modulus(np.asarray(z, float), H_model_local(z))
-
-        def dvrd_model_local(z):
+        def mu_model(z):
             z = np.asarray(z, float)
-            return 100.0 / np.maximum(H_model_local(z), 1e-9)
+            return distance_modulus(z, H_model(z), M=float(M))
 
-        _ = RhoIDParams(rho0=rho0, z_trans=zt, eps=eps)  # placeholder: conectado en release siguiente
+        def dvrd_model(z):
+            z = np.asarray(z, float)
+            return dv_over_rd(z, H_model(z), rd=float(rd))
 
-        mloc = {"H(z)": H_model_local, "mu(z)": mu_model_local, "DVrd(z)": dvrd_model_local}
-        ll = loglike_total(datasets, mloc)
+        model = {"H(z)": H_model, "mu(z)": mu_model, "DVrd(z)": dvrd_model}
+
+        try:
+            ll = loglike_total(datasets, model)
+        except Exception:
+            return -np.inf
+
+        if not np.isfinite(ll):
+            return -np.inf
+
         return lp + ll
 
-    # --- run emcee
-    nsteps = args.nsteps if args.nsteps is not None else int(cfg["run"]["nsteps"])
-    nwalkers = args.nwalkers if args.nwalkers is not None else int(cfg["run"]["nwalkers"])
-    seed = int(cfg["run"]["seed"])
+    # Inicializacion desde defaults
+    x0 = np.array([
+        eff["H0"],
+        eff["rho_b0"],
+        eff["rho_id"]["rho0"],
+        eff["rho_id"]["z_trans"],
+        eff["rho_id"]["eps"],
+        eff["rd"],
+        eff["M"],
+    ], dtype=float)
 
-    x0 = np.array([bp.H0, cfg["rho_id"]["rho0"], cfg["rho_id"]["z_trans"], cfg["rho_id"]["eps"]], float)
+    nsteps = args.nsteps if args.nsteps is not None else int(run["nsteps"])
+    nwalkers = args.nwalkers if args.nwalkers is not None else int(run["nwalkers"])
+    seed = int(run["seed"])
+
+    print(f"=== MCMC Fit (Bloque II Efectivo) ===")
+    print(f"Parametros: H0, rho_b0, rho0, z_trans, eps, rd, M")
+    print(f"nwalkers={nwalkers}, nsteps={nsteps}, seed={seed}")
+    print(f"Valores iniciales: {x0}")
+    print()
+
+    # Ejecutar emcee
     sampler = run_emcee(logprob, x0, nwalkers=nwalkers, nsteps=nsteps, seed=seed)
 
     chain = sampler.get_chain()  # (nsteps, nwalkers, ndim)
+    logp = sampler.get_log_prob()
+
+    # Guardar resultados
+    np.save(outdir / "chain.npy", chain)
+    np.save(outdir / "logp.npy", logp)
+
+    # Resumen
     summary = summarize_chain(chain, burn=max(10, nsteps // 10), thin=2)
+    names = ["H0", "rho_b0", "rho0", "z_trans", "eps", "rd", "M"]
 
-    print("Posterior (p16, p50, p84):")
-    names = ["H0", "rho0", "z_trans", "eps"]
+    lines = ["Posterior (p16, p50, p84):"]
+    lines.append("-" * 50)
     for i, n in enumerate(names):
-        print(f"{n:8s}: {summary['p16'][i]: .4f}  {summary['p50'][i]: .4f}  {summary['p84'][i]: .4f}")
+        lines.append(
+            f"{n:10s}: {summary['p16'][i]: .6f}  {summary['p50'][i]: .6f}  {summary['p84'][i]: .6f}"
+        )
+    lines.append("-" * 50)
 
-    np.save("chain.npy", chain)
-    print("OK: guardado chain.npy")
+    text = "\n".join(lines)
+    (outdir / "summary.txt").write_text(text + "\n", encoding="utf-8")
+
+    print(text)
+    print()
+    print(f"OK: Resultados guardados en {outdir}")
 
 
 if __name__ == "__main__":

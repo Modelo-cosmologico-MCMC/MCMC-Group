@@ -16,6 +16,10 @@ from .friedmann import E2_of_z as E2_of_z
 from .friedmann import E2_of_z_S as E2_of_z_S
 from .friedmann import H_of_z as H_of_z
 from .friedmann import H_of_z_S as H_of_z_S
+from .friedmann_effective import EffectiveParams as EffectiveParams
+from .friedmann_effective import H_of_z as H_of_z_effective
+from .friedmann_effective import E_of_z as E_of_z_effective
+from .friedmann_effective import rho_total as rho_total_effective
 
 __all__ = [
     "SGrid",
@@ -36,4 +40,8 @@ __all__ = [
     "E2_of_z_S",
     "H_of_z",
     "H_of_z_S",
+    "EffectiveParams",
+    "H_of_z_effective",
+    "E_of_z_effective",
+    "rho_total_effective",
 ]
