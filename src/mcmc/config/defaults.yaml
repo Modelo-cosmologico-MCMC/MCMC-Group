@@ -12,6 +12,9 @@ rho_id:
   z_trans: 0.6
   eps: 0.05
 
+model:
+  backend: effective
+
 effective:
   H0: 67.4
   rho_b0: 0.30
@@ -21,6 +24,11 @@ effective:
     rho0: 0.70
     z_trans: 1.00
     eps: 0.05
+
+block1:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
 
 run:
   nwalkers: 32
