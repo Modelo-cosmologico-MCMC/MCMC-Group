@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from mcmc.core.friedmann import (
-    FriedmannParams, E2_of_z, E2_of_z_S, H_of_z, H_of_z_S, w_eff_of_z_S, q_of_z_S
+    FriedmannParams, E2_of_z, E2_of_z_S, H_of_z, w_eff_of_z_S, q_of_z_S
 )
 from mcmc.channels.rho_id_parametric import RhoIDParams
 from mcmc.channels.rho_lat_parametric import RhoLatParams

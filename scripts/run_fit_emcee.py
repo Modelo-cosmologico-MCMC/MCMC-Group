@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 import yaml
 import numpy as np
-import pandas as pd
 
+from mcmc.data.io import load_dataset
 from mcmc.core.friedmann_effective import EffectiveParams, H_of_z
 from mcmc.channels.rho_id_refined import RhoIDRefinedParams
 from mcmc.observables.distances import distance_modulus
@@ -15,16 +15,6 @@ from mcmc.inference.emcee_fit import run_emcee
 from mcmc.inference.postprocess import summarize_chain
 
 
-def load_csv(path: str, kind: str) -> dict:
-    """Carga dataset CSV segun tipo."""
-    df = pd.read_csv(path)
-    if kind == "hz":
-        return {"z": df["z"].to_numpy(), "H": df["H"].to_numpy(), "sigma": df["sigma"].to_numpy()}
-    if kind == "sne":
-        return {"z": df["z"].to_numpy(), "mu": df["mu"].to_numpy(), "sigma": df["sigma"].to_numpy()}
-    if kind == "bao":
-        return {"z": df["z"].to_numpy(), "dv_rd": df["dv_rd"].to_numpy(), "sigma": df["sigma"].to_numpy()}
-    raise ValueError(f"kind desconocido: {kind}")
 
 
 def main():
@@ -49,11 +39,15 @@ def main():
     run = cfg["run"]
     data = cfg["data"]
 
-    # Cargar datasets
+    # Cargar datasets con loader canonico (soporta covarianza opcional)
+    ds_hz = load_dataset('hz', data['hz'], name='hz', cov_path=data.get('hz_cov'))
+    ds_sne = load_dataset('sne', data['sne'], name='sne', cov_path=data.get('sne_cov'))
+    ds_bao = load_dataset('bao', data['bao'], name='bao', cov_path=data.get('bao_cov'))
+
     datasets = {
-        "hz": load_csv(data["hz"], "hz"),
-        "sne": load_csv(data["sne"], "sne"),
-        "bao": load_csv(data["bao"], "bao"),
+        'hz': ds_hz.as_legacy_dict(),
+        'sne': ds_sne.as_legacy_dict(),
+        'bao': ds_bao.as_legacy_dict(),
     }
 
     # Crear directorio de salida
@@ -132,8 +126,8 @@ def main():
     nwalkers = args.nwalkers if args.nwalkers is not None else int(run["nwalkers"])
     seed = int(run["seed"])
 
-    print(f"=== MCMC Fit (Bloque II Efectivo) ===")
-    print(f"Parametros: H0, rho_b0, rho0, z_trans, eps, rd, M")
+    print("=== MCMC Fit (Bloque II Efectivo) ===")
+    print("Parametros: H0, rho_b0, rho0, z_trans, eps, rd, M")
     print(f"nwalkers={nwalkers}, nsteps={nsteps}, seed={seed}")
     print(f"Valores iniciales: {x0}")
     print()

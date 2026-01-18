@@ -46,7 +46,7 @@ def main():
     print(f"OK: guardado {args.out} ({len(df)} filas).")
 
     # Mostrar resumen
-    print(f"\nResumen:")
+    print("\nResumen:")
     print(f"  S range: [{S[0]:.4f}, {S[-1]:.4f}]")
     print(f"  z range: [{sol['z'][-1]:.4f}, {sol['z'][0]:.2f}]")
     print(f"  H(z=0) = {sol['H'][-1]:.2f} km/s/Mpc")

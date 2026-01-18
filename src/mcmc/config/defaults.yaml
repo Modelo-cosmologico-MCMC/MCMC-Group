@@ -31,3 +31,6 @@ data:
   hz: data/demo/hz.csv
   sne: data/demo/sne.csv
   bao: data/demo/bao.csv
+  hz_cov: null
+  sne_cov: null
+  bao_cov: null

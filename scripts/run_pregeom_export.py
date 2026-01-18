@@ -40,7 +40,7 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(ic.to_dict(), indent=2), encoding="utf-8")
 
-    print(f"Bloque 0 -> Condiciones iniciales:")
+    print("Bloque 0 -> Condiciones iniciales:")
     print(f"  Mp_pre  = {ic.Mp_pre:.6f}")
     print(f"  Ep_pre  = {ic.Ep_pre:.6f}")
     print(f"  phi_pre = {ic.phi_pre:.6f}")

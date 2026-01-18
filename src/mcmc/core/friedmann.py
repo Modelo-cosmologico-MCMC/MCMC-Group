@@ -172,7 +172,6 @@ def q_of_z_S(z: np.ndarray, S: np.ndarray, p: FriedmannParams) -> np.ndarray:
         Array de q para cada (z, S)
     """
     z = np.asarray(z, dtype=float)
-    H = H_of_z_S(z, S, p)
 
     # Derivada numerica
     dz = 1e-4

@@ -103,7 +103,7 @@ def main() -> None:
                     help="Paso de tiempo fijo (si no usa Cronos)")
     args = ap.parse_args()
 
-    print(f"=== N-body Cronos Toy Model ===")
+    print("=== N-body Cronos Toy Model ===")
     print(f"N = {args.N}, box = {args.box}, steps = {args.steps}")
     print(f"Timestep: {'Cronos' if args.use_cronos else 'fijo'}")
 
