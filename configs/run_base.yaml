@@ -1,5 +1,60 @@
-run_id: "mcmc_pr06"
-out_dir: "outputs"
+# MCMC Run Configuration
+# Supports both ontological pipeline (blocks) and inference (emcee)
+
+run:
+  run_id: "run_base"
+  outdir: "outputs"
+  mode: "evaluate"     # "fit" (emcee) or "evaluate" (loglike only)
+  seed: 42
+  nwalkers: 32
+  nsteps: 500
+  thin: 2
+  burn_frac: 0.10
+
+# Model backend selection
+model:
+  backend: "effective" # effective | block1 | unified
+
+# Data paths (demo datasets for CI)
+data:
+  hz: "data/demo/hz.csv"
+  hz_cov: null
+  sne: "data/demo/sne.csv"
+  sne_cov: null
+  bao: "data/demo/bao.csv"
+  bao_cov: null
+
+# Backend effective (Block II parametric)
+effective:
+  H0: 67.4
+  rho_b0: 0.30
+  rd: 147.0
+  M: -19.3
+  rho_id:
+    rho0: 0.70
+    z_trans: 1.0
+    eps: 0.05
+
+# Backend block1 (Block I evaluation)
+block1:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
+
+# Backend unified (Block I + density bridge)
+unified:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
+  rho_b0: 0.30
+  lat_enabled: false
+  lat_amp: 0.05
+  lat_power: 1.0
+  lat_floor: 0.0
+
+# ============================================
+# Ontological blocks (for pipeline run command)
+# ============================================
 
 block0:
   Mp0: 0.999
@@ -15,7 +70,7 @@ block0:
     width: 0.002
     floor: 0.5
 
-block1:
+ontological_block1:
   S_min: 0.010
   S_max: 1.001
   dS: 0.001
