@@ -73,8 +73,6 @@ def main():
         # Proxy demo: 1/H(z) reescalado (no fisico; evita dependencias externas)
         return 100.0 / np.maximum(H_model(z), 1e-9)
 
-    model = {"H(z)": H_model, "mu(z)": mu_model, "DVrd(z)": dvrd_model}
-
     # --- Priors MVP
     pri = yaml.safe_load(open("src/mcmc/config/priors.yaml", "r", encoding="utf-8"))
 
