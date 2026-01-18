@@ -1,272 +1,144 @@
-#!/usr/bin/env python3
-"""
-Script principal para ejecutar el ajuste MCMC con emcee.
-
-Uso:
-    python scripts/run_fit_emcee.py
-    python scripts/run_fit_emcee.py --config custom_config.yaml
-    python scripts/run_fit_emcee.py --model lcdm --n-walkers 64 --n-steps 10000
-
-Este script:
-1. Carga configuración y datos
-2. Construye el modelo y likelihood
-3. Ejecuta el sampler emcee
-4. Genera reportes y plots
-"""
+from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
+import yaml
 import numpy as np
+import pandas as pd
 
-# Añadir src al path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from mcmc.core.s_grid import create_default_grid
+from mcmc.core.background import BackgroundParams, solve_background
+from mcmc.core.mapping import make_interpolators
+from mcmc.core.checks import assert_background_ok
 
-from src.mcmc.observables.distances import DistanceCalculator, H_lcdm
-from src.mcmc.observables.bao import get_combined_bao_data
-from src.mcmc.observables.hz import get_cosmic_chronometers_data
-from src.mcmc.observables.sne import get_pantheon_binned_data
-from src.mcmc.observables.likelihoods import CombinedLikelihood, LikelihoodConfig
-from src.mcmc.observables.info_criteria import compute_all_criteria, compare_models
-from src.mcmc.channels.rho_id_parametric import (
-    RhoIdParametricParams,
-    H_of_z_with_rho_id,
-)
-from src.mcmc.inference.emcee_fit import (
-    Parameter,
-    MCMCConfig,
-    MCMCFitter,
-    run_mcmc_fit,
-    get_mcmc_refined_parameters,
-    HAS_EMCEE,
-)
+from mcmc.channels.rho_id_parametric import RhoIDParams
+from mcmc.observables.distances import distance_modulus
+from mcmc.observables.likelihoods import loglike_total
+from mcmc.inference.emcee_fit import run_emcee
+from mcmc.inference.postprocess import summarize_chain
 
 
-def parse_args():
-    """Parsea argumentos de línea de comandos."""
-    parser = argparse.ArgumentParser(
-        description='Ejecutar ajuste MCMC del modelo cosmológico'
-    )
-
-    parser.add_argument(
-        '--config',
-        type=str,
-        default=None,
-        help='Archivo de configuración YAML'
-    )
-
-    parser.add_argument(
-        '--model',
-        type=str,
-        default='mcmc_refined',
-        choices=['mcmc_refined', 'lcdm', 'wcdm'],
-        help='Modelo a ajustar'
-    )
-
-    parser.add_argument(
-        '--n-walkers',
-        type=int,
-        default=32,
-        help='Número de walkers'
-    )
-
-    parser.add_argument(
-        '--n-steps',
-        type=int,
-        default=5000,
-        help='Número de pasos por walker'
-    )
-
-    parser.add_argument(
-        '--n-burnin',
-        type=int,
-        default=1000,
-        help='Pasos de burn-in a descartar'
-    )
-
-    parser.add_argument(
-        '--output-dir',
-        type=str,
-        default='results',
-        help='Directorio de salida'
-    )
-
-    parser.add_argument(
-        '--no-progress',
-        action='store_true',
-        help='Desactivar barra de progreso'
-    )
-
-    parser.add_argument(
-        '--seed',
-        type=int,
-        default=None,
-        help='Semilla para reproducibilidad'
-    )
-
-    return parser.parse_args()
-
-
-def build_lcdm_model():
-    """Construye modelo ΛCDM."""
-    parameters = [
-        Parameter(
-            name='H0',
-            latex=r'$H_0$',
-            initial=67.4,
-            prior_min=60.0,
-            prior_max=80.0
-        ),
-        Parameter(
-            name='Omega_m',
-            latex=r'$\Omega_m$',
-            initial=0.3,
-            prior_min=0.1,
-            prior_max=0.5
-        ),
-    ]
-
-    def model_builder(params):
-        H0, Omega_m = params
-
-        def H_func(z):
-            return H_lcdm(z, H0, Omega_m)
-
-        dist_calc = DistanceCalculator(H_func=H_func, H0=H0)
-        return dist_calc, H_func
-
-    return parameters, model_builder
-
-
-def build_mcmc_refined_model():
-    """Construye modelo MCMC refinado (Nivel A)."""
-    parameters = get_mcmc_refined_parameters()
-    Omega_m0 = 0.3  # Fijo para simplificar
-
-    def model_builder(params):
-        H0, Omega_id0, z_trans, epsilon, gamma = params
-
-        rho_params = RhoIdParametricParams(
-            Omega_id0=Omega_id0,
-            z_trans=z_trans,
-            epsilon=epsilon,
-            gamma=gamma
-        )
-
-        def H_func(z):
-            return H_of_z_with_rho_id(
-                np.atleast_1d(z), H0, rho_params, Omega_m0
-            )[0] if np.isscalar(z) else H_of_z_with_rho_id(
-                z, H0, rho_params, Omega_m0
-            )
-
-        dist_calc = DistanceCalculator(H_func=H_func, H0=H0)
-        return dist_calc, H_func
-
-    return parameters, model_builder
+def load_demo_csv(path: str, kind: str) -> dict:
+    df = pd.read_csv(path)
+    if kind == "hz":
+        return {"z": df["z"].to_numpy(), "H": df["H"].to_numpy(), "sigma": df["sigma"].to_numpy()}
+    if kind == "sne":
+        return {"z": df["z"].to_numpy(), "mu": df["mu"].to_numpy(), "sigma": df["sigma"].to_numpy()}
+    if kind == "bao":
+        return {"z": df["z"].to_numpy(), "dv_rd": df["dv_rd"].to_numpy(), "sigma": df["sigma"].to_numpy()}
+    raise ValueError("kind desconocido")
 
 
 def main():
-    """Función principal."""
-    args = parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="src/mcmc/config/defaults.yaml")
+    ap.add_argument("--nsteps", type=int, default=None)
+    ap.add_argument("--nwalkers", type=int, default=None)
+    args = ap.parse_args()
 
-    # Verificar emcee
-    if not HAS_EMCEE:
-        print("ERROR: emcee no está instalado.")
-        print("Instalar con: pip install emcee")
-        sys.exit(1)
+    cfg = yaml.safe_load(open(args.config, "r", encoding="utf-8"))
 
-    # Semilla
-    if args.seed is not None:
-        np.random.seed(args.seed)
+    # --- Fondo
+    bcfg = cfg["background"]
+    bp = BackgroundParams(**bcfg)
 
-    print("=" * 60)
-    print("MCMC - Ajuste Bayesiano")
-    print("=" * 60)
+    grid, S = create_default_grid()
+    sol = solve_background(S, bp)
+    assert_background_ok(sol)
 
-    # Cargar datos
-    print("\nCargando datos...")
-    bao_data = get_combined_bao_data()
-    Hz_data = get_cosmic_chronometers_data()
-    sne_data = get_pantheon_binned_data()
+    # Interpolador H(z) desde la tabla del fondo
+    # Nota: sol["z"] crece cuando a decrece; aseguramos monotonicidad en interpolacion
+    z_arr = sol["z"]
+    H_arr = sol["H"]
+    H_of_z = make_interpolators(z_arr, H_arr)
 
-    print(f"  BAO: {bao_data.n_points} puntos")
-    print(f"  H(z): {Hz_data.n_points} puntos")
-    print(f"  SNe: {sne_data.n_sne} puntos")
+    # --- Datos demo
+    datasets = {
+        "hz": load_demo_csv(cfg["data"]["hz"], "hz"),
+        "sne": load_demo_csv(cfg["data"]["sne"], "sne"),
+        "bao": load_demo_csv(cfg["data"]["bao"], "bao"),
+    }
 
-    # Construir likelihood
-    config = LikelihoodConfig()
-    likelihood = CombinedLikelihood(
-        config=config,
-        bao_data=bao_data,
-        Hz_data=Hz_data,
-        sne_data=sne_data
-    )
+    # Modelo observable minimo:
+    # - H(z) viene del fondo (MVP)
+    # - mu(z) usa distancias integrando 1/H
+    # - DV/rd: proxy simple con H(z) (solo para demo; sustituye por DV real)
+    def H_model(z):
+        return np.asarray(H_of_z(z), float)
 
-    # Construir modelo
-    print(f"\nModelo: {args.model}")
-    if args.model == 'lcdm':
-        parameters, model_builder = build_lcdm_model()
-    elif args.model == 'mcmc_refined':
-        parameters, model_builder = build_mcmc_refined_model()
-    else:
-        print(f"Modelo {args.model} no implementado aún")
-        sys.exit(1)
+    def mu_model(z):
+        return distance_modulus(np.asarray(z, float), H_model(z))
 
-    print(f"  Parámetros: {[p.name for p in parameters]}")
+    def dvrd_model(z):
+        z = np.asarray(z, float)
+        # Proxy demo: 1/H(z) reescalado (no fisico; evita dependencias externas)
+        return 100.0 / np.maximum(H_model(z), 1e-9)
 
-    # Función de log-likelihood
-    def log_likelihood(params):
-        try:
-            dist_calc, H_func = model_builder(params)
-            return likelihood.log_likelihood(dist_calc, H_func)
-        except Exception:
+    model = {"H(z)": H_model, "mu(z)": mu_model, "DVrd(z)": dvrd_model}
+
+    # --- Priors MVP
+    pri = yaml.safe_load(open("src/mcmc/config/priors.yaml", "r", encoding="utf-8"))
+
+    def logprior(theta):
+        H0, rho0, zt, eps = theta
+        if not (pri["H0"][0] <= H0 <= pri["H0"][1]):
+            return -np.inf
+        if not (pri["rho0"][0] <= rho0 <= pri["rho0"][1]):
+            return -np.inf
+        if not (pri["z_trans"][0] <= zt <= pri["z_trans"][1]):
+            return -np.inf
+        if not (pri["eps"][0] <= eps <= pri["eps"][1]):
+            return -np.inf
+        return 0.0
+
+    # En el MVP, solo ajustamos H0 y parametros rho_id, pero no reinyectamos rho_id aun en H(z).
+    # Esto es deliberado: deja el pipeline emcee estable. El siguiente paso es acoplar rho_id -> Friedmann.
+    def logprob(theta):
+        lp = logprior(theta)
+        if not np.isfinite(lp):
             return -np.inf
 
-    # Configurar MCMC
-    mcmc_config = MCMCConfig(
-        n_walkers=args.n_walkers,
-        n_steps=args.n_steps,
-        n_burnin=args.n_burnin,
-        progress=not args.no_progress
-    )
+        H0, rho0, zt, eps = theta
 
-    print(f"\nConfiguración MCMC:")
-    print(f"  Walkers: {mcmc_config.n_walkers}")
-    print(f"  Pasos: {mcmc_config.n_steps}")
-    print(f"  Burn-in: {mcmc_config.n_burnin}")
+        # actualiza H0 del fondo en caliente (sin reintegrar; MVP)
+        # Para el modelo completo: reintegrar solve_background con H0 y recomputar H_of_z.
+        # Aqui solo aplicamos escala lineal a H(z) para mantener estabilidad.
+        scale = H0 / bp.H0
 
-    # Ejecutar
-    print("\nEjecutando MCMC...")
-    fitter = MCMCFitter(parameters, log_likelihood, mcmc_config)
-    result = fitter.run()
+        def H_model_local(z):
+            return scale * H_model(z)
 
-    # Mostrar resultados
-    print("\n" + result.summary())
+        def mu_model_local(z):
+            return distance_modulus(np.asarray(z, float), H_model_local(z))
 
-    # Calcular criterios de información
-    n_params = len(parameters)
-    n_data = likelihood.n_bao + likelihood.n_Hz + likelihood.n_sne
-    chi2_best = -2 * np.max(result.log_prob)
+        def dvrd_model_local(z):
+            z = np.asarray(z, float)
+            return 100.0 / np.maximum(H_model_local(z), 1e-9)
 
-    criteria = compute_all_criteria(chi2_best, n_params, n_data)
-    print(f"\n{criteria}")
+        _ = RhoIDParams(rho0=rho0, z_trans=zt, eps=eps)  # placeholder: conectado en release siguiente
 
-    # Guardar resultados
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+        mloc = {"H(z)": H_model_local, "mu(z)": mu_model_local, "DVrd(z)": dvrd_model_local}
+        ll = loglike_total(datasets, mloc)
+        return lp + ll
 
-    np.save(output_dir / f'{args.model}_samples.npy', result.samples)
-    np.save(output_dir / f'{args.model}_log_prob.npy', result.log_prob)
+    # --- run emcee
+    nsteps = args.nsteps if args.nsteps is not None else int(cfg["run"]["nsteps"])
+    nwalkers = args.nwalkers if args.nwalkers is not None else int(cfg["run"]["nwalkers"])
+    seed = int(cfg["run"]["seed"])
 
-    # Resumen
-    with open(output_dir / f'{args.model}_summary.txt', 'w') as f:
-        f.write(result.summary())
-        f.write(f"\n\n{criteria}")
+    x0 = np.array([bp.H0, cfg["rho_id"]["rho0"], cfg["rho_id"]["z_trans"], cfg["rho_id"]["eps"]], float)
+    sampler = run_emcee(logprob, x0, nwalkers=nwalkers, nsteps=nsteps, seed=seed)
 
-    print(f"\nResultados guardados en: {output_dir}")
-    print("=" * 60)
+    chain = sampler.get_chain()  # (nsteps, nwalkers, ndim)
+    summary = summarize_chain(chain, burn=max(10, nsteps // 10), thin=2)
+
+    print("Posterior (p16, p50, p84):")
+    names = ["H0", "rho0", "z_trans", "eps"]
+    for i, n in enumerate(names):
+        print(f"{n:8s}: {summary['p16'][i]: .4f}  {summary['p50'][i]: .4f}  {summary['p84'][i]: .4f}")
+
+    np.save("chain.npy", chain)
+    print("OK: guardado chain.npy")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
