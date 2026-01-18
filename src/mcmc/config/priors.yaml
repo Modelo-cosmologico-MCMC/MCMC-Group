@@ -10,6 +10,27 @@
 # ============================================================================
 
 # ----------------------------------------------------------------------------
+# Priors para starter kit v0.1 (compatible con inference/emcee_fit.py)
+# ----------------------------------------------------------------------------
+priors:
+  H0:
+    type: uniform
+    min: 50.0
+    max: 85.0
+  Omega_m0:
+    type: uniform
+    min: 0.05
+    max: 0.6
+  z_trans:
+    type: uniform
+    min: 0.0
+    max: 10.0
+  epsilon:
+    type: uniform
+    min: 0.0
+    max: 0.2
+
+# ----------------------------------------------------------------------------
 # Modelo MCMC Refinado (Nivel A - Paramétrico)
 # ----------------------------------------------------------------------------
 # Este es el modelo recomendado para el Release v0.1
