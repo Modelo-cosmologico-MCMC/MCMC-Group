@@ -1,0 +1,50 @@
+run_id: "mcmc_pr06"
+out_dir: "outputs"
+
+block0:
+  Mp0: 0.999
+  Ep0: 0.001
+  eps: 0.001
+  S_min: 0.001
+  S_max: 0.009
+  dS: 0.001
+  field:
+    dS: 0.001
+    k0: 8.0
+    center: 0.005
+    width: 0.002
+    floor: 0.5
+
+block1:
+  S_min: 0.010
+  S_max: 1.001
+  dS: 0.001
+  H0: 67.4
+  sign: 1.0
+  cronos:
+    C_early: 2.2
+    C_mid: 1.7
+    C_late: 1.05
+    S1: 0.010
+    S2: 0.100
+    S3: 1.000
+    S4: 1.001
+    T0: 1.0
+    T_peak_amp: 0.15
+    T_peak_w: 0.010
+    phi_env_amp: 0.7
+    phi_env_tau: 0.6
+    phi_bump_amp: 0.8
+    phi_bump_w: 0.020
+
+block2:
+  Mp0: 0.99
+  Mpeq: 0.50
+  gamma_S: 1.2
+  kappa: 0.02
+  alpha_base: 0.6666667
+  delta_alpha: 0.20
+  w0: -1.0
+  delta_w: 0.02
+  S1: 0.010
+  S4: 1.001
