@@ -1,0 +1,304 @@
+================================================================================
+               MCMC - MODELO COSMOLOGICO DE MULTIPLES COLAPSOS
+                        ECUACIONES BASE - CONTRATO v1.0
+================================================================================
+
+Este documento define el contrato de ecuaciones fundamentales del modelo MCMC.
+Cualquier implementacion debe respetar estas definiciones.
+
+================================================================================
+                          PARTE 0: CONSTANTES Y SELLOS
+================================================================================
+
+Sellos Ontologicos (valores canonicos):
+---------------------------------------
+  S1 = 0.010    Inicio post-geometrico
+  S2 = 0.100    Transicion temprana
+  S3 = 1.000    Transicion tardia
+  S4 = 1.001    Hoy (normalizacion)
+
+Paso de integracion:
+--------------------
+  dS = 10^-3    (discretizacion canonica)
+
+Constantes fundamentales:
+-------------------------
+  c = 299792.458 km/s     (velocidad de la luz)
+  H0 ~ 67-74 km/s/Mpc     (parametro de Hubble hoy)
+
+================================================================================
+                    PARTE I: BLOQUE 0 - ESTADO PRE-GEOMETRICO
+================================================================================
+
+Rango entropico: S in [0.001, 0.009]
+
+1. Estado Primordial
+--------------------
+   Mp(S=0) = Mp0      (masa primordial, ~ 0.999)
+   Ep(S=0) = Ep0      (energia primordial, ~ 0.001)
+
+   INVARIANTE: Mp(S) + Ep(S) = 1.0  (para todo S)
+
+2. Campo Pre-Geometrico phi(S)
+------------------------------
+   phi(S) = floor + (1 - floor) * exp(-k0 * (S - center)^2 / (2*width^2))
+
+   Parametros:
+   - k0: amplitud (default: 8.0)
+   - center: centro del bump (default: 0.005)
+   - width: ancho (default: 0.002)
+   - floor: valor asinthotico (default: 0.5)
+
+3. Tasa de Colapso
+------------------
+   collapse_rate(S) = |d phi / dS|
+
+4. Evolucion Pre-Geometrica
+---------------------------
+   dMp/dS = -eps * collapse_rate(S) * (Mp - Ep)
+   dEp/dS = +eps * collapse_rate(S) * (Mp - Ep)
+
+   donde eps ~ 0.001 es la escala de colapso.
+
+================================================================================
+                PARTE II: BLOQUE I - NUCLEO ONTOLOGICO (LEY DE CRONOS)
+================================================================================
+
+Rango entropico: S in [S1, S4] = [0.010, 1.001]
+
+1. Funcion de Expansion C(S)
+----------------------------
+   C(S) = d(ln a)/dS
+
+   Perfil sigmoidal entre sellos:
+   - S < S1: C = C_early
+   - S1 <= S < S2: transicion C_early -> C_mid
+   - S2 <= S < S3: transicion C_mid -> C_late
+   - S >= S3: C = C_late
+
+   Valores tipicos:
+   - C_early = 2.2
+   - C_mid = 1.7
+   - C_late = 1.05
+
+2. Funcion de Chronificacion T(S)
+---------------------------------
+   T(S) controla el flujo del tiempo relativo.
+
+   Perfil con peak tensional:
+   T(S) = T0 + T_peak_amp * exp(-(S - S_peak)^2 / (2*T_peak_w^2))
+
+   Valores tipicos:
+   - T0 = 1.0
+   - T_peak_amp = 0.15
+   - T_peak_w = 0.010
+
+3. Campo Tensional Phi_ten(S)
+-----------------------------
+   Phi_ten(S) = phi_env(S) + phi_bump(S)
+
+   phi_env(S) = phi_env_amp * S * exp(-S / phi_env_tau)
+   phi_bump(S) = phi_bump_amp * exp(-(S - S_bump)^2 / (2*phi_bump_w^2))
+
+   Valores tipicos:
+   - phi_env_amp = 0.7
+   - phi_env_tau = 0.6
+   - phi_bump_amp = 0.8
+   - phi_bump_w = 0.020
+
+4. Factor de Lapse N(S)
+-----------------------
+   N(S) = exp(Phi_ten(S))
+
+   Modifica la metrica: ds^2 = -N^2 dt^2 + a^2 dx^2
+
+5. Ecuaciones de Fondo
+----------------------
+   d(ln a)/dS = C(S)
+   dt_rel/dS = T(S) * N(S)
+
+6. Factor de Escala a(S)
+------------------------
+   ln a(S) = integral[S1, S] C(s) ds
+
+   Con condicion de frontera a(S4) = 1:
+   ln a_raw(S) = integral[S1, S] C(s) ds
+   ln a(S) = ln a_raw(S) - ln a_raw(S4)
+
+   => a(S4) = 1  (normalizacion)
+
+7. Redshift z(S)
+----------------
+   z(S) = 1/a(S) - 1
+
+   => z(S4) = 0
+
+8. Funcion de Hubble H(S)
+-------------------------
+   H(S) = (da/dt) / a = (da/dS) * (dS/dt) / a
+        = (a * C(S)) / (T(S) * N(S) * a)
+        = C(S) / (T(S) * N(S))
+
+   Normalizacion en S4:
+   H(S4) = H0 [km/s/Mpc]
+
+================================================================================
+              PARTE III: BLOQUE II - COSMOLOGIA EFECTIVA
+================================================================================
+
+1. Dualidad de Masas Mp_eff / Ep_eff
+------------------------------------
+   INVARIANTE: Mp_eff(S) + Ep_eff(S) = 1.0  (para todo S)
+
+   Evolucion:
+   Mp_eff(S) = Mp0 + (Mpeq - Mp0) * sigma(S; S1, S4, gamma_S)
+   Ep_eff(S) = 1 - Mp_eff(S)
+
+   donde sigma es una sigmoide suave:
+   sigma(S; S1, S4, gamma) = 1 / (1 + exp(-gamma * (S - S_mid)))
+   S_mid = (S1 + S4) / 2
+
+2. Parametro de Expansion alpha_eff(S)
+--------------------------------------
+   alpha_eff(S) = alpha_base + delta_alpha * tanh(kappa * (S - S_mid))
+
+   Valores tipicos:
+   - alpha_base = 2/3
+   - delta_alpha = 0.20
+   - kappa = 0.02
+
+3. Ecuacion de Estado w_eff(S)
+------------------------------
+   w_eff(S) = w0 + delta_w * sigma(S; S1, S4)
+
+   Valores tipicos:
+   - w0 = -1.0
+   - delta_w = 0.02
+
+4. Friedmann Normalizado H(z)
+-----------------------------
+   H(z) = H0 * sqrt(rho(z) / rho(0))
+
+   Garantiza: H(z=0) = H0 exactamente.
+
+   Componentes de densidad:
+   rho(z) = rho_m(z) + rho_r(z) + rho_id(z) + rho_lat(z)
+
+   Con:
+   - rho_m(z) = rho_m0 * (1+z)^3     (materia)
+   - rho_r(z) = rho_r0 * (1+z)^4     (radiacion)
+   - rho_id(z): canal indeterminado
+   - rho_lat(z): canal latente
+
+5. Canal Indeterminado rho_id(z)
+--------------------------------
+   Parametrizacion Nivel A:
+
+   rho_id(z) = rho0 * (1+z)^3              si z > z_trans
+   rho_id(z) = rho0 * [1 + eps*(z_trans - z)]   si z <= z_trans
+
+   Parametros libres: {rho0, z_trans, eps}
+
+6. Canal Latente rho_lat(S)
+---------------------------
+   rho_lat(S) = lat_amp * S^lat_power / (1 + exp(-(S - S_center)/width))
+
+   Parametros libres: {lat_amp, lat_power}
+
+   Nota: Este canal puede desactivarse (lat_enabled = false).
+
+7. Construccion H_eff(S)
+------------------------
+   Desde el Bloque I:
+   H_eff(S) = H0 * C(S) / (T(S) * N(S)) * [normalizacion]
+
+   donde la normalizacion garantiza H_eff(S4) = H0.
+
+================================================================================
+                   PARTE IV: OBSERVABLES COSMOLOGICOS
+================================================================================
+
+1. Distancia de Luminosidad d_L(z)
+----------------------------------
+   d_L(z) = (1+z) * d_C(z)
+
+   donde d_C es la distancia comovil:
+   d_C(z) = c * integral[0, z] dz' / H(z')
+
+2. Modulo de Distancia mu(z)
+----------------------------
+   mu(z) = 5 * log10(d_L(z) / 10 pc)
+         = 5 * log10(d_L(z) [Mpc]) + 25
+
+   Para supernovas: mu_obs = m_B - M, donde M ~ -19.3 mag
+
+3. Distancia de Volumen D_V(z)
+------------------------------
+   D_V(z) = [z * d_C(z)^2 * c / H(z)]^(1/3)
+
+4. Observable BAO D_V/r_d
+-------------------------
+   (D_V / r_d)(z) = D_V(z) / r_d
+
+   donde r_d ~ 147 Mpc es el horizonte de sonido en el drag epoch.
+
+================================================================================
+                       PARTE V: VEROSIMILITUD (CHI2)
+================================================================================
+
+1. Chi2 para H(z)
+-----------------
+   chi2_hz = sum_i [(H_obs(z_i) - H_model(z_i))^2 / sigma_i^2]
+
+   Con covarianza:
+   chi2_hz = (H_obs - H_model)^T * C^-1 * (H_obs - H_model)
+
+2. Chi2 para SNe Ia (mu)
+------------------------
+   chi2_sne = sum_i [(mu_obs(z_i) - mu_model(z_i))^2 / sigma_i^2]
+
+   Con covarianza:
+   chi2_sne = (mu_obs - mu_model)^T * C^-1 * (mu_obs - mu_model)
+
+3. Chi2 para BAO
+----------------
+   chi2_bao = sum_i [((D_V/r_d)_obs - (D_V/r_d)_model)^2 / sigma_i^2]
+
+4. Log-Verosimilitud Total
+--------------------------
+   loglike = -0.5 * (chi2_hz + chi2_sne + chi2_bao)
+
+================================================================================
+                          PARTE VI: PARAMETROS MCMC
+================================================================================
+
+Parametros libres (backend effective):
+--------------------------------------
+  H0       : [50, 100] km/s/Mpc
+  rho_b0   : [0.01, 1.0]
+  rho0     : [0.01, 2.0]
+  z_trans  : [0.1, 3.0]
+  eps      : [-0.5, 0.5]
+  rd       : [130, 160] Mpc
+  M        : [-21, -18] mag
+
+Prior uniforme en todos los parametros.
+
+================================================================================
+                              REFERENCIAS
+================================================================================
+
+Implementacion:
+- src/mcmc/blocks/block0/    : Bloque 0 (pre-geometrico)
+- src/mcmc/blocks/block1/    : Bloque I (Cronos)
+- src/mcmc/blocks/block2/    : Bloque II (efectivo)
+- src/mcmc/core/friedmann.py : Friedmann normalizado
+- src/mcmc/observables/      : Distancias y chi2
+- src/mcmc/models/builder.py : Constructor de modelos
+
+Configuracion canonica:
+- configs/run_base.yaml
+
+================================================================================
+                           FIN DEL CONTRATO v1.0
+================================================================================

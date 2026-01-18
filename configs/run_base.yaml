@@ -1,0 +1,105 @@
+# MCMC Run Configuration
+# Supports both ontological pipeline (blocks) and inference (emcee)
+
+run:
+  run_id: "run_base"
+  outdir: "outputs"
+  mode: "evaluate"     # "fit" (emcee) or "evaluate" (loglike only)
+  seed: 42
+  nwalkers: 32
+  nsteps: 500
+  thin: 2
+  burn_frac: 0.10
+
+# Model backend selection
+model:
+  backend: "effective" # effective | block1 | unified
+
+# Data paths (demo datasets for CI)
+data:
+  hz: "data/demo/hz.csv"
+  hz_cov: null
+  sne: "data/demo/sne.csv"
+  sne_cov: null
+  bao: "data/demo/bao.csv"
+  bao_cov: null
+
+# Backend effective (Block II parametric)
+effective:
+  H0: 67.4
+  rho_b0: 0.30
+  rd: 147.0
+  M: -19.3
+  rho_id:
+    rho0: 0.70
+    z_trans: 1.0
+    eps: 0.05
+
+# Backend block1 (Block I evaluation)
+block1:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
+
+# Backend unified (Block I + density bridge)
+unified:
+  H0: 67.4
+  rd: 147.0
+  M: -19.3
+  rho_b0: 0.30
+  lat_enabled: false
+  lat_amp: 0.05
+  lat_power: 1.0
+  lat_floor: 0.0
+
+# ============================================
+# Ontological blocks (for pipeline run command)
+# ============================================
+
+block0:
+  Mp0: 0.999
+  Ep0: 0.001
+  eps: 0.001
+  S_min: 0.001
+  S_max: 0.009
+  dS: 0.001
+  field:
+    dS: 0.001
+    k0: 8.0
+    center: 0.005
+    width: 0.002
+    floor: 0.5
+
+ontological_block1:
+  S_min: 0.010
+  S_max: 1.001
+  dS: 0.001
+  H0: 67.4
+  sign: 1.0
+  cronos:
+    C_early: 2.2
+    C_mid: 1.7
+    C_late: 1.05
+    S1: 0.010
+    S2: 0.100
+    S3: 1.000
+    S4: 1.001
+    T0: 1.0
+    T_peak_amp: 0.15
+    T_peak_w: 0.010
+    phi_env_amp: 0.7
+    phi_env_tau: 0.6
+    phi_bump_amp: 0.8
+    phi_bump_w: 0.020
+
+block2:
+  Mp0: 0.99
+  Mpeq: 0.50
+  gamma_S: 1.2
+  kappa: 0.02
+  alpha_base: 0.6666667
+  delta_alpha: 0.20
+  w0: -1.0
+  delta_w: 0.02
+  S1: 0.010
+  S4: 1.001
