@@ -108,7 +108,7 @@ def run_staged_pipeline(config_path: str | Path) -> StagedOutputs:
             "=== Stage 1: Pre-BB (S ≤ S_BB) ===",
             f"S range: [{prebb_result.S.min():.4f}, {prebb_result.S.max():.4f}]",
             f"t(S_BB): {prebb_result.t_BB:.6e} (anchor: 0)",
-            f"a(S_BB): {prebb_result.a_BB:.6f}",
+            f"a_rel(S_BB): {prebb_result.a_rel_BB:.6f} (ontological, NOT FRW)",
             f"Mp_pre: {prebb_result.Mp_pre:.6f}",
             f"Ep_pre: {prebb_result.Ep_pre:.6f}",
             "",
@@ -126,7 +126,7 @@ def run_staged_pipeline(config_path: str | Path) -> StagedOutputs:
         summary_lines.extend([
             "=== Stage 2: Post-BB (S > S_BB, z ≥ 0) ===",
             f"H0: {postbb_result.H0:.2f} km/s/Mpc",
-            f"Age of universe (t0): {postbb_result.t0:.6e}",
+            f"Age of universe (t0): {postbb_result.t0:.2f} Gyr",
             f"rd: {postbb_result.rd:.2f} Mpc",
             "",
             "Sample observables:",
@@ -214,11 +214,14 @@ def _run_stage_prebb(cfg: dict, outdir: Path) -> PreBBResult:
     result = solve_prebb(params)
 
     # Save pre-BB output
+    # NOTE: a_rel is ONTOLOGICAL relative scale factor (NOT FRW)
+    # a_rel(S_BB) = 1 by normalization at Big Bang threshold
     output = {
         "regime": "pre-BB",
         "S_range": [float(result.S.min()), float(result.S.max())],
         "t_BB": float(result.t_BB),
-        "a_BB": float(result.a_BB),
+        "a_rel_BB": float(result.a_rel_BB),
+        "note": "a_rel is ontological, NOT FRW scale factor",
         "block0": {
             "Mp_pre": result.Mp_pre,
             "Ep_pre": result.Ep_pre,
@@ -228,8 +231,8 @@ def _run_stage_prebb(cfg: dict, outdir: Path) -> PreBBResult:
         "block1": {
             "S": result.S.tolist(),
             "t": result.t.tolist(),
-            "a": result.a.tolist(),
-            "z": result.z.tolist(),
+            "a_rel": result.a_rel.tolist(),
+            "z_onto": result.z_onto.tolist(),
             "H_ref": result.H_ref.tolist(),
         },
     }

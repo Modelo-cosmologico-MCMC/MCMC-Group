@@ -122,7 +122,7 @@ class TestStagedPipelineOntological:
             result = run_staged_pipeline(config_path)
 
             bc = json.loads(result.boundary_path.read_text())
-            assert "a_BB" in bc
+            assert "a_rel_BB" in bc
             assert "t_BB" in bc
             assert "Mp_pre" in bc
             assert "Ep_pre" in bc

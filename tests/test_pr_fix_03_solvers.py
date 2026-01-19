@@ -39,10 +39,10 @@ class TestSolvePreBB:
         result = solve_prebb()
         assert abs(result.t_BB) < 1e-6
 
-    def test_a_normalized_at_BB(self) -> None:
-        """a(S_BB) = 1 by normalization."""
+    def test_a_rel_normalized_at_BB(self) -> None:
+        """a_rel(S_BB) = 1 by normalization (ontological, NOT FRW)."""
         result = solve_prebb()
-        assert abs(result.a_BB - 1.0) < 1e-6
+        assert abs(result.a_rel_BB - 1.0) < 1e-6
 
     def test_t_negative_before_BB(self) -> None:
         """t < 0 for S < S_BB (pre-Big-Bang regime)."""
@@ -58,7 +58,7 @@ class TestSolvePreBB:
         result = solve_prebb()
         bc = get_prebb_boundary_conditions(result)
 
-        assert "a_BB" in bc
+        assert "a_rel_BB" in bc
         assert "t_BB" in bc
         assert "Mp_pre" in bc
         assert "Ep_pre" in bc

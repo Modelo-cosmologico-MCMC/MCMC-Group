@@ -9,6 +9,11 @@ Convention:
     - t = 0 is the Big Bang (S = S_BB)
     - t > 0 is cosmic time since Big Bang
     - t_lookback(z) is lookback time from today to redshift z
+
+Units:
+    - H(z) in km/s/Mpc
+    - Time outputs in Gyr (when using compute_universe_age_gyr)
+    - Hubble time: t_H = 1/H0 ≈ 977.8/H0 Gyr (for H0 in km/s/Mpc)
 """
 from __future__ import annotations
 
@@ -17,6 +22,16 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from mcmc.core.chronos import ChronosParams, S_of_t
+
+
+# Physical constants for unit conversion
+# Conversion factor: integral of dz/[(1+z)H(z)] with H in km/s/Mpc gives time in Gyr
+# when multiplied by this factor.
+# Derivation: 1 Mpc = 3.085677581e19 km, 1 Gyr = 3.15576e16 s
+# Factor = (km/Mpc) * (s/Gyr) = 3.085677581e19 / 3.15576e16 ≈ 977.79 Gyr * (km/s/Mpc)
+KM_PER_MPC = 3.085677581e19  # km per Mpc
+SEC_PER_GYR = 3.15576e16     # seconds per Gyr
+HUBBLE_TIME_FACTOR = KM_PER_MPC / SEC_PER_GYR  # ≈ 977.79 Gyr * km/s/Mpc
 
 
 def make_interpolators(z: np.ndarray, y: np.ndarray):
@@ -170,21 +185,40 @@ def compute_universe_age(
     H_of_z: Callable[[np.ndarray], np.ndarray],
     zmax: float = 1000.0,
     n_grid: int = 2000,
-    c_over_H0: float = 1.0,
+    in_gyr: bool = True,
 ) -> float:
     """Estimate the age of the universe by integrating to high z.
 
     t0 ≈ integral_0^zmax dz' / [(1+z') H(z')]
 
     Args:
-        H_of_z: Function returning H(z)
+        H_of_z: Function returning H(z) in km/s/Mpc
         zmax: Maximum z for integration (should be large)
         n_grid: Grid resolution
-        c_over_H0: Speed of light / H0 for unit conversion
+        in_gyr: If True (default), return age in Gyr. Otherwise dimensionless.
 
     Returns:
-        Estimated age of universe in the same units as c_over_H0/H
+        Estimated age of universe in Gyr (if in_gyr=True) or dimensionless.
+
+    Note:
+        For ΛCDM with H0≈67.4 km/s/Mpc, typical age is ~13.8 Gyr.
     """
     z_grid = np.linspace(0, zmax, n_grid)
-    t_grid = t_lookback_of_z(z_grid, H_of_z, c_over_H0)
+
+    # Use HUBBLE_TIME_FACTOR for Gyr conversion, or 1.0 for dimensionless
+    factor = HUBBLE_TIME_FACTOR if in_gyr else 1.0
+
+    t_grid = t_lookback_of_z(z_grid, H_of_z, c_over_H0=factor)
     return float(t_grid[-1])
+
+
+def compute_hubble_time_gyr(H0: float) -> float:
+    """Compute Hubble time t_H = 1/H0 in Gyr.
+
+    Args:
+        H0: Hubble constant in km/s/Mpc
+
+    Returns:
+        Hubble time in Gyr: t_H ≈ 977.79/H0 Gyr
+    """
+    return HUBBLE_TIME_FACTOR / H0

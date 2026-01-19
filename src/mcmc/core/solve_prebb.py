@@ -23,7 +23,12 @@ from mcmc.blocks.block1 import run_block1, Block1Params
 
 @dataclass
 class PreBBResult:
-    """Result from pre-BB solver."""
+    """Result from pre-BB solver.
+
+    NOTE: a_rel is the ONTOLOGICAL relative scale factor, NOT the FRW scale factor.
+    It is normalized so that a_rel(S_BB) = 1 at the Big Bang threshold.
+    This is distinct from the cosmological a(z) where a(z=0)=1 at today.
+    """
     # Grid
     S: np.ndarray
     t: np.ndarray  # Chronos time (t=0 at S_BB)
@@ -35,12 +40,12 @@ class PreBBResult:
     kpre_mean: float
 
     # Block 1 outputs (Cronos integrated)
-    a: np.ndarray  # Scale factor (normalized: a(S_BB)=1)
-    z: np.ndarray  # Redshift
+    a_rel: np.ndarray  # Ontological relative scale factor (normalized: a_rel(S_BB)=1)
+    z_onto: np.ndarray  # Ontological redshift-like quantity
     H_ref: np.ndarray  # Reference H(S)
 
     # Boundary conditions at S_BB (for post-BB)
-    a_BB: float = 1.0  # a(S_BB) = 1 by normalization
+    a_rel_BB: float = 1.0  # a_rel(S_BB) = 1 by normalization
     t_BB: float = 0.0  # t(S_BB) = 0 by Chronos anchor
 
     # Metadata
@@ -78,8 +83,8 @@ def solve_prebb(params: PreBBParams | None = None) -> PreBBResult:
 
     # Convert lists to arrays
     S = np.array(b1["S"])
-    a = np.array(b1["a"])
-    z = np.array(b1["z"])
+    a_rel = np.array(b1["a"])  # Ontological relative scale factor
+    z_onto = np.array(b1["z"])  # Ontological redshift-like quantity
     H_ref = np.array(b1["H"])
 
     # Compute Chronos time with BB anchor
@@ -88,7 +93,7 @@ def solve_prebb(params: PreBBParams | None = None) -> PreBBResult:
     # Verify anchor
     idx_bb = np.argmin(np.abs(S - THRESHOLDS.S_BB))
     t_BB = float(t[idx_bb])
-    a_BB = float(a[idx_bb])
+    a_rel_BB = float(a_rel[idx_bb])
 
     return PreBBResult(
         S=S,
@@ -97,10 +102,10 @@ def solve_prebb(params: PreBBParams | None = None) -> PreBBResult:
         Ep_pre=b0["Ep_pre"],
         phi_pre=b0["phi_pre"],
         kpre_mean=b0["kpre_mean"],
-        a=a,
-        z=z,
+        a_rel=a_rel,
+        z_onto=z_onto,
         H_ref=H_ref,
-        a_BB=a_BB,
+        a_rel_BB=a_rel_BB,
         t_BB=t_BB,
         params={
             "block0": params.block0,
@@ -117,13 +122,13 @@ def get_prebb_boundary_conditions(result: PreBBResult) -> dict[str, Any]:
 
     Returns:
         Dictionary with:
-        - a_BB: Scale factor at Big Bang (normalized to 1)
+        - a_rel_BB: Ontological relative scale factor at Big Bang (normalized to 1)
         - t_BB: Time at Big Bang (= 0 by Chronos anchor)
         - Mp_pre, Ep_pre: Pre-geometric masses
         - phi_pre: Pre-geometric field value
     """
     return {
-        "a_BB": result.a_BB,
+        "a_rel_BB": result.a_rel_BB,
         "t_BB": result.t_BB,
         "Mp_pre": result.Mp_pre,
         "Ep_pre": result.Ep_pre,

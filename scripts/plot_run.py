@@ -302,24 +302,27 @@ def plot_prebb(outdir: Path) -> None:
 
     S = np.array(b1["S"])
     t = np.array(b1["t"])
-    a = np.array(b1["a"])
+    # Support both old ("a") and new ("a_rel") naming
+    a_rel = np.array(b1.get("a_rel", b1.get("a", [])))
     H_ref = np.array(b1["H_ref"])
 
     S_BB = prebb["S_range"][1]  # Should be 1.001
+    # Support both old ("a_BB") and new ("a_rel_BB") naming
+    a_rel_BB = prebb.get("a_rel_BB", prebb.get("a_BB", 1.0))
 
-    # --- a(S)
+    # --- a_rel(S) - Ontological relative scale factor (NOT FRW)
     plt.figure(figsize=(8, 5))
-    plt.plot(S, a, "b-", lw=2)
+    plt.plot(S, a_rel, "b-", lw=2)
     plt.axvline(S_BB, color="r", ls="--", lw=1.5, label=f"S_BB = {S_BB}")
     plt.xlabel("S (entropy)", fontsize=12)
-    plt.ylabel("a(S) [normalized]", fontsize=12)
-    plt.title("Scale factor vs Entropy (Pre-BB)", fontsize=14)
+    plt.ylabel("a_rel(S) [ontological]", fontsize=12)
+    plt.title("Ontological Relative Scale Factor (NOT FRW)", fontsize=14)
     plt.legend()
     plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(plots_dir / "prebb_a_vs_S.png", dpi=180)
+    plt.savefig(plots_dir / "prebb_a_rel_vs_S.png", dpi=180)
     plt.close()
-    print(f"  Saved: {plots_dir / 'prebb_a_vs_S.png'}")
+    print(f"  Saved: {plots_dir / 'prebb_a_rel_vs_S.png'}")
 
     # --- t(S)
     plt.figure(figsize=(8, 5))
@@ -353,7 +356,7 @@ def plot_prebb(outdir: Path) -> None:
     # Pre-BB summary
     print(f"  Pre-BB range: S in [{prebb['S_range'][0]:.4f}, {prebb['S_range'][1]:.4f}]")
     print(f"  t(S_BB) = {prebb['t_BB']:.6e} (anchor)")
-    print(f"  a(S_BB) = {prebb['a_BB']:.6f}")
+    print(f"  a_rel(S_BB) = {a_rel_BB:.6f} (ontological, NOT FRW)")
 
 
 def plot_chain(outdir: Path) -> None:
