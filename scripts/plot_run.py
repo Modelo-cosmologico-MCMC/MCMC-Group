@@ -2,18 +2,26 @@
 """Plot observables and chain diagnostics from a pipeline run.
 
 Usage:
+    # Post-BB observables (default)
     python scripts/plot_run.py --outdir outputs/run_base
     python scripts/plot_run.py --latest
-    python scripts/plot_run.py --outdir outputs/run_base --zmax 3.0
+
+    # Pre-BB ontological quantities (staged runs only)
+    python scripts/plot_run.py --outdir outputs/run_base --prebb
 
 Generates PNG plots in outputs/<run_id>/plots/:
-    - Hz.png, mu.png, bao_dvrd.png (model + data)
-    - Hz_residuals.png, mu_residuals.png, bao_residuals.png (if data exist)
-    - trace_<param>.png, posterior_<param>.png (if chain.npy exists)
+    Post-BB (default):
+        - Hz.png, mu.png, bao_dvrd.png (model + data)
+        - Hz_residuals.png, mu_residuals.png, bao_residuals.png
+        - trace_<param>.png, posterior_<param>.png (if chain.npy exists)
+
+    Pre-BB (--prebb flag, staged runs only):
+        - prebb_a_vs_S.png, prebb_t_vs_S.png, prebb_H_vs_S.png
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -64,8 +72,99 @@ def _load_dataset_safe(kind: str, path: str | None, cov_path: str | None = None)
         return None
 
 
+def _is_staged_run(outdir: Path) -> bool:
+    """Check if this is a staged pipeline run."""
+    return (outdir / "stage2_postbb.json").exists() or (outdir / "stage1_prebb.json").exists()
+
+
+def plot_observables_from_staged(outdir: Path, nz: int = 400, zmax: float | None = None) -> None:
+    """Plot observables from staged pipeline JSON output."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plots_dir = outdir / "plots"
+    _safe_mkdir(plots_dir)
+
+    postbb_path = outdir / "stage2_postbb.json"
+    if not postbb_path.exists():
+        print("  No stage2_postbb.json found. Skipping post-BB plots.")
+        return
+
+    postbb = json.loads(postbb_path.read_text(encoding="utf-8"))
+    obs = postbb["observables"]
+
+    z_grid = np.array(obs["z"])
+    H_grid = np.array(obs["H"])
+    mu_grid = np.array(obs["mu"])
+    dvrd_grid = np.array(obs["DVrd"])
+
+    # Filter by zmax if specified
+    if zmax is not None:
+        mask = z_grid <= zmax
+        z_grid = z_grid[mask]
+        H_grid = H_grid[mask]
+        mu_grid = mu_grid[mask]
+        dvrd_grid = dvrd_grid[mask]
+
+    # Load data from config if available
+    cfg = _load_used_config(outdir)
+    data = cfg.get("data", {})
+    ds_hz = _load_dataset_safe("hz", data.get("hz"), data.get("hz_cov"))
+    ds_sne = _load_dataset_safe("sne", data.get("sne"), data.get("sne_cov"))
+    ds_bao = _load_dataset_safe("bao", data.get("bao"), data.get("bao_cov"))
+
+    # --- H(z)
+    plt.figure(figsize=(8, 5))
+    plt.plot(z_grid, H_grid, "b-", lw=2, label="Model H(z)")
+    if ds_hz is not None:
+        plt.errorbar(ds_hz.z, ds_hz.y, yerr=ds_hz.sigma, fmt="o", ms=4, capsize=2, label="Data H(z)")
+    plt.xlabel("z", fontsize=12)
+    plt.ylabel("H(z) [km/s/Mpc]", fontsize=12)
+    plt.title(f"Hubble function (H0={postbb['H0']:.1f})", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "Hz.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'Hz.png'}")
+
+    # --- mu(z)
+    plt.figure(figsize=(8, 5))
+    # Filter out nan values at z=0
+    valid = ~np.isnan(mu_grid)
+    plt.plot(z_grid[valid], mu_grid[valid], "b-", lw=2, label="Model mu(z)")
+    if ds_sne is not None:
+        plt.errorbar(ds_sne.z, ds_sne.y, yerr=ds_sne.sigma, fmt="o", ms=4, capsize=2, label="Data mu(z)")
+    plt.xlabel("z", fontsize=12)
+    plt.ylabel("mu(z) [mag]", fontsize=12)
+    plt.title("Distance modulus", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "mu.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'mu.png'}")
+
+    # --- DV/rd(z)
+    plt.figure(figsize=(8, 5))
+    valid = ~np.isnan(dvrd_grid)
+    plt.plot(z_grid[valid], dvrd_grid[valid], "b-", lw=2, label="Model DV/rd(z)")
+    if ds_bao is not None:
+        plt.errorbar(ds_bao.z, ds_bao.y, yerr=ds_bao.sigma, fmt="o", ms=4, capsize=2, label="Data DV/rd")
+    plt.xlabel("z", fontsize=12)
+    plt.ylabel("DV/rd(z)", fontsize=12)
+    plt.title(f"BAO observable (rd={postbb['rd']:.1f} Mpc)", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "bao_dvrd.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'bao_dvrd.png'}")
+
+
 def plot_observables(cfg: dict, outdir: Path, nz: int = 400, zmax: float | None = None) -> None:
-    """Plot H(z), mu(z), DV/rd(z) model curves with data overlay."""
+    """Plot H(z), mu(z), DV/rd(z) model curves with data overlay (legacy mode)."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -184,6 +283,82 @@ def plot_observables(cfg: dict, outdir: Path, nz: int = 400, zmax: float | None 
         print(f"  Saved: {plots_dir / 'bao_residuals.png'}")
 
 
+def plot_prebb(outdir: Path) -> None:
+    """Plot pre-BB ontological quantities from staged output."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plots_dir = outdir / "plots"
+    _safe_mkdir(plots_dir)
+
+    prebb_path = outdir / "stage1_prebb.json"
+    if not prebb_path.exists():
+        print("  No stage1_prebb.json found. Run 'mcmc staged' with mode=full or ontological.")
+        return
+
+    prebb = json.loads(prebb_path.read_text(encoding="utf-8"))
+    b1 = prebb["block1"]
+
+    S = np.array(b1["S"])
+    t = np.array(b1["t"])
+    # Support both old ("a") and new ("a_rel") naming
+    a_rel = np.array(b1.get("a_rel", b1.get("a", [])))
+    H_ref = np.array(b1["H_ref"])
+
+    S_BB = prebb["S_range"][1]  # Should be 1.001
+    # Support both old ("a_BB") and new ("a_rel_BB") naming
+    a_rel_BB = prebb.get("a_rel_BB", prebb.get("a_BB", 1.0))
+
+    # --- a_rel(S) - Ontological relative scale factor (NOT FRW)
+    plt.figure(figsize=(8, 5))
+    plt.plot(S, a_rel, "b-", lw=2)
+    plt.axvline(S_BB, color="r", ls="--", lw=1.5, label=f"S_BB = {S_BB}")
+    plt.xlabel("S (entropy)", fontsize=12)
+    plt.ylabel("a_rel(S) [ontological]", fontsize=12)
+    plt.title("Ontological Relative Scale Factor (NOT FRW)", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "prebb_a_rel_vs_S.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'prebb_a_rel_vs_S.png'}")
+
+    # --- t(S)
+    plt.figure(figsize=(8, 5))
+    plt.plot(S, t, "g-", lw=2)
+    plt.axvline(S_BB, color="r", ls="--", lw=1.5, label=f"S_BB = {S_BB}")
+    plt.axhline(0, color="k", ls=":", lw=1, alpha=0.5)
+    plt.xlabel("S (entropy)", fontsize=12)
+    plt.ylabel("t(S) [Chronos time]", fontsize=12)
+    plt.title("Chronos Time vs Entropy (t=0 at Big Bang)", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "prebb_t_vs_S.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'prebb_t_vs_S.png'}")
+
+    # --- H_ref(S)
+    plt.figure(figsize=(8, 5))
+    plt.plot(S, H_ref, "m-", lw=2)
+    plt.axvline(S_BB, color="r", ls="--", lw=1.5, label=f"S_BB = {S_BB}")
+    plt.xlabel("S (entropy)", fontsize=12)
+    plt.ylabel("H_ref(S) [reference]", fontsize=12)
+    plt.title("Reference Hubble vs Entropy (Pre-BB)", fontsize=14)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(plots_dir / "prebb_H_vs_S.png", dpi=180)
+    plt.close()
+    print(f"  Saved: {plots_dir / 'prebb_H_vs_S.png'}")
+
+    # Pre-BB summary
+    print(f"  Pre-BB range: S in [{prebb['S_range'][0]:.4f}, {prebb['S_range'][1]:.4f}]")
+    print(f"  t(S_BB) = {prebb['t_BB']:.6e} (anchor)")
+    print(f"  a_rel(S_BB) = {a_rel_BB:.6f} (ontological, NOT FRW)")
+
+
 def plot_chain(outdir: Path) -> None:
     """Plot trace and posterior histograms if chain.npy exists."""
     import matplotlib
@@ -258,11 +433,19 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         prog="plot_run",
         description="Generate plots from a pipeline run output",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python scripts/plot_run.py --outdir outputs/run_base     # Post-BB plots
+  python scripts/plot_run.py --latest                      # Auto-detect latest
+  python scripts/plot_run.py --outdir outputs/run --prebb  # Pre-BB ontology
+        """,
     )
     ap.add_argument("--outdir", help="Path to outputs/<run_id> directory")
     ap.add_argument("--latest", action="store_true", help="Auto-detect latest run in outputs/")
     ap.add_argument("--nz", type=int, default=400, help="Number of z points for model curves")
     ap.add_argument("--zmax", type=float, default=None, help="Maximum z for plots")
+    ap.add_argument("--prebb", action="store_true", help="Plot pre-BB ontological quantities (staged runs only)")
     args = ap.parse_args()
 
     # Determine output directory
@@ -283,8 +466,11 @@ def main() -> int:
         print(f"ERROR: Output directory not found: {outdir}", file=sys.stderr)
         return 1
 
+    is_staged = _is_staged_run(outdir)
+
     print("=" * 60)
     print(f"Generating plots for: {outdir}")
+    print(f"Pipeline type: {'staged' if is_staged else 'legacy'}")
     print("=" * 60)
 
     try:
@@ -293,17 +479,30 @@ def main() -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
 
-    print(f"Backend: {cfg.get('model', {}).get('backend', 'unknown')}")
-    print()
+    if args.prebb:
+        # Pre-BB plots (staged runs only)
+        print("\nPre-BB ontological plots:")
+        if is_staged:
+            plot_prebb(outdir)
+        else:
+            print("  ERROR: --prebb requires a staged pipeline run (use 'mcmc staged')")
+            return 1
+    else:
+        # Post-BB observable plots
+        print(f"Backend: {cfg.get('model', {}).get('backend', 'unknown')}")
+        print()
 
-    print("Observable plots:")
-    plot_observables(cfg, outdir, nz=args.nz, zmax=args.zmax)
-    print()
+        print("Observable plots (Post-BB):")
+        if is_staged:
+            plot_observables_from_staged(outdir, nz=args.nz, zmax=args.zmax)
+        else:
+            plot_observables(cfg, outdir, nz=args.nz, zmax=args.zmax)
+        print()
 
-    print("Chain diagnostics:")
-    plot_chain(outdir)
-    print()
+        print("Chain diagnostics:")
+        plot_chain(outdir)
 
+    print()
     print("=" * 60)
     print(f"OK: All plots saved to {outdir / 'plots'}")
     print("=" * 60)

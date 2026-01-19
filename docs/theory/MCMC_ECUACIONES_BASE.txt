@@ -1,21 +1,32 @@
 ================================================================================
                MCMC - MODELO COSMOLOGICO DE MULTIPLES COLAPSOS
-                        ECUACIONES BASE - CONTRATO v1.0
+                        ECUACIONES BASE - CONTRATO v2.0
 ================================================================================
 
 Este documento define el contrato de ecuaciones fundamentales del modelo MCMC.
 Cualquier implementacion debe respetar estas definiciones.
 
+Referencia: MCMC Maestro en Zenodo (https://zenodo.org/records/15556310)
+
 ================================================================================
-                          PARTE 0: CONSTANTES Y SELLOS
+                    PARTE 0: ONTOLOGIA Y UMBRALES
 ================================================================================
 
-Sellos Ontologicos (valores canonicos):
----------------------------------------
-  S1 = 0.010    Inicio post-geometrico
-  S2 = 0.100    Transicion temprana
-  S3 = 1.000    Transicion tardia
-  S4 = 1.001    Hoy (normalizacion)
+CRITICO: DEFINICION DE REGIMENES
+--------------------------------
+
+  PRE-BIG-BANG:   S in [0, S_BB]     Regimen primordial (4 colapsos)
+  POST-BIG-BANG:  S > S_BB           Universo observable (cosmologia)
+
+  S_BB = 1.001 es el "Big Bang observable" (4to latido/umbral)
+  S_BB NO es "hoy". El presente cosmologico ocurre para S > S_BB.
+
+Umbrales Ontologicos (segun Manuscrito Maestro):
+------------------------------------------------
+  S_PLANCK = 0.009    Escala de Planck (cuantico-gravitatoria)
+  S_GUT    = 0.099    Unificacion GUT
+  S_EW     = 0.999    Ruptura electrodebil
+  S_BB     = 1.001    Confinamiento QCD / Big Bang observable
 
 Paso de integracion:
 --------------------
@@ -24,20 +35,21 @@ Paso de integracion:
 Constantes fundamentales:
 -------------------------
   c = 299792.458 km/s     (velocidad de la luz)
-  H0 ~ 67-74 km/s/Mpc     (parametro de Hubble hoy)
+  H0 ~ 67-74 km/s/Mpc     (parametro de Hubble HOY, en post-BB)
 
 ================================================================================
                     PARTE I: BLOQUE 0 - ESTADO PRE-GEOMETRICO
 ================================================================================
 
-Rango entropico: S in [0.001, 0.009]
+Regimen: PRE-BB
+Rango entropico: S in [0.001, S_PLANCK] = [0.001, 0.009]
 
 1. Estado Primordial
 --------------------
    Mp(S=0) = Mp0      (masa primordial, ~ 0.999)
    Ep(S=0) = Ep0      (energia primordial, ~ 0.001)
 
-   INVARIANTE: Mp(S) + Ep(S) = 1.0  (para todo S)
+   INVARIANTE: Mp(S) + Ep(S) = 1.0  (para todo S en pre-BB)
 
 2. Campo Pre-Geometrico phi(S)
 ------------------------------
@@ -47,7 +59,7 @@ Rango entropico: S in [0.001, 0.009]
    - k0: amplitud (default: 8.0)
    - center: centro del bump (default: 0.005)
    - width: ancho (default: 0.002)
-   - floor: valor asinthotico (default: 0.5)
+   - floor: valor asintotico (default: 0.5)
 
 3. Tasa de Colapso
 ------------------
@@ -61,20 +73,21 @@ Rango entropico: S in [0.001, 0.009]
    donde eps ~ 0.001 es la escala de colapso.
 
 ================================================================================
-                PARTE II: BLOQUE I - NUCLEO ONTOLOGICO (LEY DE CRONOS)
+            PARTE II: BLOQUE I - NUCLEO ONTOLOGICO (LEY DE CRONOS)
 ================================================================================
 
-Rango entropico: S in [S1, S4] = [0.010, 1.001]
+Regimen: PRE-BB
+Rango entropico: S in [S_PLANCK, S_BB] = [0.009, 1.001]
 
 1. Funcion de Expansion C(S)
 ----------------------------
    C(S) = d(ln a)/dS
 
-   Perfil sigmoidal entre sellos:
-   - S < S1: C = C_early
-   - S1 <= S < S2: transicion C_early -> C_mid
-   - S2 <= S < S3: transicion C_mid -> C_late
-   - S >= S3: C = C_late
+   Perfil sigmoidal entre umbrales:
+   - S < S_PLANCK: C = C_early
+   - S_PLANCK <= S < S_GUT: transicion C_early -> C_mid
+   - S_GUT <= S < S_EW: transicion C_mid -> C_late
+   - S >= S_EW: C = C_late
 
    Valores tipicos:
    - C_early = 2.2
@@ -112,74 +125,50 @@ Rango entropico: S in [S1, S4] = [0.010, 1.001]
 
    Modifica la metrica: ds^2 = -N^2 dt^2 + a^2 dx^2
 
-5. Ecuaciones de Fondo
-----------------------
+5. Ecuaciones de Fondo (pre-BB)
+-------------------------------
    d(ln a)/dS = C(S)
    dt_rel/dS = T(S) * N(S)
 
-6. Factor de Escala a(S)
-------------------------
-   ln a(S) = integral[S1, S] C(s) ds
+6. Tiempo Relativo t_rel(S)
+---------------------------
+   t_rel(S) = integral[S_PLANCK, S] T(s) * N(s) ds
 
-   Con condicion de frontera a(S4) = 1:
-   ln a_raw(S) = integral[S1, S] C(s) ds
-   ln a(S) = ln a_raw(S) - ln a_raw(S4)
-
-   => a(S4) = 1  (normalizacion)
-
-7. Redshift z(S)
-----------------
-   z(S) = 1/a(S) - 1
-
-   => z(S4) = 0
-
-8. Funcion de Hubble H(S)
--------------------------
-   H(S) = (da/dt) / a = (da/dS) * (dS/dt) / a
-        = (a * C(S)) / (T(S) * N(S) * a)
-        = C(S) / (T(S) * N(S))
-
-   Normalizacion en S4:
-   H(S4) = H0 [km/s/Mpc]
+   El tiempo cosmico emerge para S > S_BB.
 
 ================================================================================
-              PARTE III: BLOQUE II - COSMOLOGIA EFECTIVA
+              PARTE III: TRANSICION BIG BANG (S = S_BB)
 ================================================================================
 
-1. Dualidad de Masas Mp_eff / Ep_eff
-------------------------------------
-   INVARIANTE: Mp_eff(S) + Ep_eff(S) = 1.0  (para todo S)
+En S = S_BB = 1.001:
+--------------------
+- Se completan los 4 colapsos/latidos ontologicos
+- Se fijan las constantes fundamentales
+- Nace el universo 3+1D observable
+- Comienza el tiempo cosmico t >= 0
 
-   Evolucion:
-   Mp_eff(S) = Mp0 + (Mpeq - Mp0) * sigma(S; S1, S4, gamma_S)
-   Ep_eff(S) = 1 - Mp_eff(S)
+Condiciones de frontera para post-BB:
+-------------------------------------
+   t(S_BB) = 0          (Big Bang: inicio del tiempo cosmico)
+   a(S_BB) = a_BB       (factor de escala en el Big Bang)
 
-   donde sigma es una sigmoide suave:
-   sigma(S; S1, S4, gamma) = 1 / (1 + exp(-gamma * (S - S_mid)))
-   S_mid = (S1 + S4) / 2
+Nota: a_BB es muy pequeno (era primordial). La normalizacion
+a(hoy) = 1 se aplica en post-BB, NO en S_BB.
 
-2. Parametro de Expansion alpha_eff(S)
---------------------------------------
-   alpha_eff(S) = alpha_base + delta_alpha * tanh(kappa * (S - S_mid))
+================================================================================
+              PARTE IV: BLOQUE II - COSMOLOGIA POST-BB
+================================================================================
 
-   Valores tipicos:
-   - alpha_base = 2/3
-   - delta_alpha = 0.20
-   - kappa = 0.02
+Regimen: POST-BB
+Dominio: S > S_BB  equivale a  t > 0  equivale a  z < z_max
 
-3. Ecuacion de Estado w_eff(S)
-------------------------------
-   w_eff(S) = w0 + delta_w * sigma(S; S1, S4)
+IMPORTANTE: Los observables H(z), mu(z), BAO se definen en este regimen.
 
-   Valores tipicos:
-   - w0 = -1.0
-   - delta_w = 0.02
-
-4. Friedmann Normalizado H(z)
+1. Friedmann Normalizado H(z)
 -----------------------------
    H(z) = H0 * sqrt(rho(z) / rho(0))
 
-   Garantiza: H(z=0) = H0 exactamente.
+   Garantiza: H(z=0) = H0 exactamente (HOY, no en S_BB).
 
    Componentes de densidad:
    rho(z) = rho_m(z) + rho_r(z) + rho_id(z) + rho_lat(z)
@@ -187,10 +176,10 @@ Rango entropico: S in [S1, S4] = [0.010, 1.001]
    Con:
    - rho_m(z) = rho_m0 * (1+z)^3     (materia)
    - rho_r(z) = rho_r0 * (1+z)^4     (radiacion)
-   - rho_id(z): canal indeterminado
-   - rho_lat(z): canal latente
+   - rho_id(z): canal indeterminado (energia oscura efectiva)
+   - rho_lat(z): canal latente (opcional)
 
-5. Canal Indeterminado rho_id(z)
+2. Canal Indeterminado rho_id(z)
 --------------------------------
    Parametrizacion Nivel A:
 
@@ -199,24 +188,24 @@ Rango entropico: S in [S1, S4] = [0.010, 1.001]
 
    Parametros libres: {rho0, z_trans, eps}
 
-6. Canal Latente rho_lat(S)
+3. Canal Latente rho_lat(z)
 ---------------------------
-   rho_lat(S) = lat_amp * S^lat_power / (1 + exp(-(S - S_center)/width))
+   rho_lat = lat_amp * f(z)
 
-   Parametros libres: {lat_amp, lat_power}
-
+   Parametros libres: {lat_amp}
    Nota: Este canal puede desactivarse (lat_enabled = false).
 
-7. Construccion H_eff(S)
-------------------------
-   Desde el Bloque I:
-   H_eff(S) = H0 * C(S) / (T(S) * N(S)) * [normalizacion]
-
-   donde la normalizacion garantiza H_eff(S4) = H0.
+4. Normalizacion del Presente
+-----------------------------
+   z = 0 corresponde a HOY (no a S_BB)
+   a(z=0) = 1
+   H(z=0) = H0
 
 ================================================================================
-                   PARTE IV: OBSERVABLES COSMOLOGICOS
+                   PARTE V: OBSERVABLES COSMOLOGICOS (POST-BB)
 ================================================================================
+
+TODOS los observables se calculan en el regimen post-BB (z >= 0).
 
 1. Distancia de Luminosidad d_L(z)
 ----------------------------------
@@ -243,8 +232,10 @@ Rango entropico: S in [S1, S4] = [0.010, 1.001]
    donde r_d ~ 147 Mpc es el horizonte de sonido en el drag epoch.
 
 ================================================================================
-                       PARTE V: VEROSIMILITUD (CHI2)
+                       PARTE VI: VEROSIMILITUD (CHI2)
 ================================================================================
+
+La inferencia opera sobre observables POST-BB.
 
 1. Chi2 para H(z)
 -----------------
@@ -269,11 +260,11 @@ Rango entropico: S in [S1, S4] = [0.010, 1.001]
    loglike = -0.5 * (chi2_hz + chi2_sne + chi2_bao)
 
 ================================================================================
-                          PARTE VI: PARAMETROS MCMC
+                          PARTE VII: PARAMETROS MCMC
 ================================================================================
 
-Parametros libres (backend effective):
---------------------------------------
+Parametros libres (backend effective, post-BB):
+-----------------------------------------------
   H0       : [50, 100] km/s/Mpc
   rho_b0   : [0.01, 1.0]
   rho0     : [0.01, 2.0]
@@ -285,20 +276,31 @@ Parametros libres (backend effective):
 Prior uniforme en todos los parametros.
 
 ================================================================================
-                              REFERENCIAS
+                       PARTE VIII: MAPA ECUACION -> CODIGO
 ================================================================================
 
-Implementacion:
-- src/mcmc/blocks/block0/    : Bloque 0 (pre-geometrico)
-- src/mcmc/blocks/block1/    : Bloque I (Cronos)
-- src/mcmc/blocks/block2/    : Bloque II (efectivo)
-- src/mcmc/core/friedmann.py : Friedmann normalizado
-- src/mcmc/observables/      : Distancias y chi2
-- src/mcmc/models/builder.py : Constructor de modelos
+Ontologia:
+- src/mcmc/core/ontology.py         : Umbrales, regimenes, S_BB
 
-Configuracion canonica:
+Pre-BB (Bloque 0 + I):
+- src/mcmc/blocks/block0/           : Estado pre-geometrico
+- src/mcmc/blocks/block1/cronos.py  : Ley de Cronos (C, T, Phi_ten, N)
+- src/mcmc/core/s_grid.py           : Rejilla S discreta
+
+Post-BB (Bloque II):
+- src/mcmc/core/friedmann_effective.py : Friedmann normalizado H(z)
+- src/mcmc/channels/rho_id_*.py     : Canal indeterminado
+- src/mcmc/observables/distances.py : d_L, mu, D_V
+- src/mcmc/observables/chi2_*.py    : Verosimilitud
+
+Modelos:
+- src/mcmc/models/effective_model.py : Backend efectivo (post-BB)
+- src/mcmc/models/block1_model.py    : Backend Block I (pre-BB)
+- src/mcmc/models/builder.py         : Constructor unificado
+
+Configuracion:
 - configs/run_base.yaml
 
 ================================================================================
-                           FIN DEL CONTRATO v1.0
+                           FIN DEL CONTRATO v2.0
 ================================================================================
