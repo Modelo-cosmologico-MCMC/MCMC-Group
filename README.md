@@ -1,18 +1,18 @@
 # MCMC - Modelo Cosmologico de Multiples Colapsos
 
-Implementacion computacional completa del modelo cosmologico MCMC con arquitectura de bloques ontologicos y ajuste bayesiano.
+Implementacion computacional del modelo cosmologico MCMC con arquitectura por bloques ontologicos y soporte de ajuste bayesiano (emcee) para el backend efectivo.
 
 ## Arquitectura
 
-El modelo MCMC se organiza en tres bloques ontologicos:
+El MCMC se organiza en bloques ontologicos definidos sobre la variable discreta entropica **S**:
 
 | Bloque | Rango S | Descripcion |
-|--------|---------|-------------|
-| **Bloque 0** | [0.001, 0.009] | Estado pre-geometrico, colapso primordial |
-| **Bloque I** | [0.010, 1.001] | Nucleo ontologico, Ley de Cronos (C, T, Phi_ten, N) |
-| **Bloque II** | [0.010, 1.001] | Cosmologia efectiva, Friedmann normalizado |
+|--------|--------:|-------------|
+| Bloque 0 | [0.001, 0.009] | Estado pregeometrico y colapso primordial |
+| Bloque I | [0.010, 1.001] | Nucleo ontologico: Ley de Cronos C(S), T(S), Phi_ten(S), N(S) |
+| Bloque II | [0.010, 1.001] | Cosmologia efectiva: Friedmann normalizado y observables |
 
-**Sellos ontologicos:**
+### Sellos ontologicos
 - S1 = 0.010 (inicio post-geometrico)
 - S2 = 0.100 (transicion temprana)
 - S3 = 1.000 (transicion tardia)
@@ -25,7 +25,7 @@ git clone https://github.com/Modelo-cosmologico-MCMC/MCMC-Group.git
 cd MCMC-Group
 python -m venv venv
 source venv/bin/activate
-pip install -e .[dev]
+pip install -e ".[dev]"
 ```
 
 ## Ejecucion Rapida
@@ -36,31 +36,26 @@ pip install -e .[dev]
 # Pipeline ontologico (Bloque 0 -> 1 -> 2)
 mcmc run --config configs/run_base.yaml
 
-# Pipeline de inferencia (evaluar log-likelihood)
+# Pipeline de inferencia (evaluate o fit segun run.mode en config)
 mcmc fit --config configs/run_base.yaml
-
-# Pipeline de inferencia (ajuste MCMC con emcee)
-# Modificar mode: "fit" en el config
-mcmc fit --config configs/run_fit.yaml
 ```
 
-### Scripts Wrapper
+### Wrapper Unificado
 
 ```bash
-# Wrapper unificado
+# Modo evaluate (log-likelihood sin MCMC)
 python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode evaluate
+
+# Modo fit (emcee, solo backend effective)
+python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode fit
+
+# Modo ontologico (Bloque 0 -> 1 -> 2)
 python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode ontological
-
-# Tabla de fondo clasica
-python scripts/run_background_table.py --plot --out background_table.csv
-
-# Ajuste MCMC directo
-python scripts/run_fit_emcee.py --nsteps 500 --nwalkers 32
 ```
 
 ### Generacion de Graficas
 
-Despues de ejecutar el pipeline, genera graficas automaticamente:
+Despues de ejecutar el pipeline:
 
 ```bash
 # Especificar directorio de salida
@@ -80,24 +75,27 @@ Graficas generadas en `outputs/<run_id>/plots/`:
 
 ## Configuracion
 
-El archivo `configs/run_base.yaml` define todos los parametros:
+Archivo base: `configs/run_base.yaml`
 
 ```yaml
 run:
   run_id: "run_base"
   outdir: "outputs"
-  mode: "evaluate"     # "fit" o "evaluate"
+  mode: "evaluate"   # "evaluate" o "fit"
   seed: 42
   nwalkers: 32
   nsteps: 500
 
 model:
-  backend: "effective" # effective | block1 | unified
+  backend: "effective"  # effective | block1 | unified
 
 data:
   hz: "data/demo/hz.csv"
+  hz_cov: null
   sne: "data/demo/sne.csv"
+  sne_cov: null
   bao: "data/demo/bao.csv"
+  bao_cov: null
 
 effective:
   H0: 67.4
@@ -110,17 +108,45 @@ effective:
     eps: 0.05
 ```
 
-## Backends de Modelo
+### Backends disponibles
 
-| Backend | Descripcion | Ajuste MCMC |
-|---------|-------------|-------------|
-| `effective` | Bloque II parametrico (rho_id) | Si |
-| `block1` | Bloque I ontologico directo | Evaluacion |
-| `unified` | Bloque I + puente de densidad | Evaluacion |
+| Backend | Descripcion | MCMC (emcee) |
+|---------|-------------|--------------|
+| `effective` | Bloque II parametrizado (rho_id + nuisance rd, M) | Si (`mode=fit`) |
+| `block1` | Bloque I ontologico directo | Solo evaluacion |
+| `unified` | Bloque I + puente densidades | Solo evaluacion |
+
+Nota: si `backend != effective` y `mode=fit`, el sistema ejecuta evaluacion y notifica en summary.txt.
 
 ## Uso Programatico
 
-### Pipeline Ontologico
+### Construir modelo desde config
+
+```python
+import yaml
+from mcmc.models.builder import build_model_from_config
+import numpy as np
+
+cfg = yaml.safe_load(open("configs/run_base.yaml", encoding="utf-8"))
+model = build_model_from_config(cfg)
+
+z = np.linspace(0.01, 2, 200)
+H = model["H(z)"](z)
+mu = model["mu(z)"](z)
+dvrd = model["DVrd(z)"](z)
+```
+
+### Ejecutar pipeline desde Python
+
+```python
+from mcmc.pipeline import run_from_config
+
+out = run_from_config("configs/run_base.yaml")
+print(f"Log-likelihood: {out.loglike:.8f}")
+print(f"Output: {out.outdir}")
+```
+
+### Pipeline ontologico
 
 ```python
 from mcmc.pipeline import load_config, run_pipeline
@@ -139,42 +165,14 @@ print(f"z(S4): {out.block1.z[-1]:.10f}")
 print(f"H_eff(z=0): {out.block2.H_eff[-1]:.4f} km/s/Mpc")
 ```
 
-### Pipeline de Inferencia
-
-```python
-from mcmc.pipeline import run_from_config
-
-out = run_from_config("configs/run_base.yaml")
-print(f"Log-likelihood: {out.loglike:.8f}")
-print(f"Output: {out.outdir}")
-```
-
-### Modelo Unificado
-
-```python
-from mcmc.models import build_model_from_config
-
-cfg = {
-    "model": {"backend": "effective"},
-    "effective": {"H0": 67.4, "rho_b0": 0.30, "rd": 147.0, "M": -19.3,
-                  "rho_id": {"rho0": 0.70, "z_trans": 1.0, "eps": 0.05}}
-}
-model = build_model_from_config(cfg)
-
-import numpy as np
-z = np.linspace(0, 2, 100)
-H = model.H_of_z(z)
-mu = model.mu_of_z(z)
-```
-
 ## Datasets
 
 ### Datos Demo (CI)
 
 ```
-data/demo/hz.csv   - H(z) simulado
-data/demo/sne.csv  - SNe Ia simulado
-data/demo/bao.csv  - BAO simulado
+data/demo/hz.csv   - H(z) simulado (columnas: z, H, sigma)
+data/demo/sne.csv  - SNe Ia simulado (columnas: z, mu, sigma)
+data/demo/bao.csv  - BAO simulado (columnas: z, dv_rd, sigma)
 ```
 
 ### Datos Reales
@@ -182,19 +180,23 @@ data/demo/bao.csv  - BAO simulado
 Los datos reales se guardan en `data/real/` (excluido de git).
 Ver `docs/implementation/real_datasets_workflow.md` para instrucciones.
 
-Formatos soportados:
-- CSV con columnas: z, value, error
-- Matrices de covarianza opcionales
+### Formatos de covarianza (opcional)
+
+- `.npy` con matriz NxN
+- `.npz` con clave `cov` o `cov_inv`
 
 ## Tests
 
 ```bash
-# Todos los tests
+# Linting
+ruff check src tests scripts
+
+# Tests
 pytest -q
 
-# Tests especificos
-pytest tests/test_pr06_pipeline.py -v
-pytest tests/test_pr07_pipeline_smoke.py -v
+# Validacion completa
+mcmc fit --config configs/run_base.yaml
+python scripts/plot_run.py --latest
 ```
 
 ## Estructura del Proyecto
@@ -202,34 +204,29 @@ pytest tests/test_pr07_pipeline_smoke.py -v
 ```
 MCMC-Group/
 ├── src/mcmc/
-│   ├── blocks/
-│   │   ├── block0/       # Pre-geometrico
-│   │   ├── block1/       # Cronos
-│   │   └── block2/       # Efectivo
-│   ├── core/             # S-grid, background, Friedmann
-│   ├── channels/         # rho_id, rho_lat
-│   ├── observables/      # Distancias, chi2, likelihoods
-│   ├── models/           # API unificada de modelos
-│   ├── pipeline/         # Config, run, inference
-│   ├── inference/        # emcee, postprocess
-│   └── data/             # IO, registry
-├── configs/              # Configuraciones YAML
+│   ├── blocks/          # Bloques ontologicos (block0, block1, block2)
+│   ├── core/            # S-grid, background, Friedmann
+│   ├── channels/        # rho_id, rho_lat
+│   ├── observables/     # Distancias, chi2, likelihoods
+│   ├── models/          # API unificada (effective, block1, unified)
+│   ├── pipeline/        # Config, run, inference
+│   ├── inference/       # emcee, postprocess
+│   └── data/            # IO, registry
+├── configs/             # Configuraciones YAML
 ├── data/
-│   ├── demo/             # Datos para CI
-│   └── real/             # Datos reales (no en git)
-├── scripts/              # Scripts de ejecucion
-├── tests/                # Tests pytest
+│   ├── demo/            # Datos para CI
+│   └── real/            # Datos reales (no versionado)
+├── scripts/             # Scripts de ejecucion y plotting
+├── tests/               # Tests pytest
 └── docs/
-    ├── theory/           # Documentacion teorica
-    └── implementation/   # Documentacion tecnica
+    ├── theory/          # Documentacion teorica + contrato ecuaciones
+    └── implementation/  # Guias tecnicas
 ```
 
-## Documentacion
+## Contrato Teorico
 
-- `docs/theory/MCMC_ECUACIONES_BASE.txt` - Contrato de ecuaciones
-- `docs/theory/overview.md` - Vision general
-- `docs/theory/block_*.md` - Documentacion por bloque
-- `docs/implementation/` - Guias tecnicas
+El archivo `docs/theory/MCMC_ECUACIONES_BASE.txt` define el contrato de ecuaciones fundamentales.
+Cualquier cambio en ecuaciones debe reflejarse en este documento.
 
 ## Invariantes del Modelo
 
@@ -243,8 +240,7 @@ MIT
 
 ## Citacion
 
-Si utilizas este codigo, por favor cita:
-```
+```bibtex
 @software{mcmc_group,
   title = {MCMC - Modelo Cosmologico de Multiples Colapsos},
   url = {https://github.com/Modelo-cosmologico-MCMC/MCMC-Group}
