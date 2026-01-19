@@ -113,6 +113,7 @@ Thumbs.db
 # Project specific
 results/
 output/
+outputs/
 chains/
 *.h5
 *.hdf5
