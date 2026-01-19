@@ -58,6 +58,26 @@ python scripts/run_background_table.py --plot --out background_table.csv
 python scripts/run_fit_emcee.py --nsteps 500 --nwalkers 32
 ```
 
+### Generacion de Graficas
+
+Despues de ejecutar el pipeline, genera graficas automaticamente:
+
+```bash
+# Especificar directorio de salida
+python scripts/plot_run.py --outdir outputs/run_base
+
+# Auto-detectar el run mas reciente
+python scripts/plot_run.py --latest
+
+# Personalizar rango de z
+python scripts/plot_run.py --latest --zmax 3.0
+```
+
+Graficas generadas en `outputs/<run_id>/plots/`:
+- `Hz.png`, `mu.png`, `bao_dvrd.png` - Curvas del modelo + datos
+- `*_residuals.png` - Residuos (modelo - datos)
+- `trace_*.png`, `posterior_*.png` - Diagnosticos de cadena (si existe chain.npy)
+
 ## Configuracion
 
 El archivo `configs/run_base.yaml` define todos los parametros:
