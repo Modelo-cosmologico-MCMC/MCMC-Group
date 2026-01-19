@@ -1,0 +1,22 @@
+block0:
+  Ep0: 0.001
+  Mp0: 0.999
+  S_max: 0.009
+  S_min: 0.001
+block1:
+  H0: 67.4
+  S_max: 1.001
+  S_min: 0.01
+effective:
+  H0: 67.4
+  M: -19.3
+  rd: 147.0
+  rho_b0: 0.3
+  rho_id:
+    eps: 0.05
+    rho0: 0.7
+    z_trans: 1.0
+run:
+  mode: full
+  outdir: outputs
+  run_id: test_staged_demo

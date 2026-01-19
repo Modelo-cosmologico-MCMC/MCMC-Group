@@ -158,7 +158,8 @@ def _run_stage_prebb(cfg: dict, outdir: Path) -> PreBBResult:
     """Run Stage 1: Pre-BB solver."""
     # Build parameters from config
     b0_cfg = cfg.get("block0", {}) or {}
-    b1_cfg = cfg.get("block1", {}) or {}
+    # Support both "block1" and legacy "ontological_block1" keys
+    b1_cfg = cfg.get("block1", {}) or cfg.get("ontological_block1", {}) or {}
 
     # Block 0 params
     field_cfg = b0_cfg.get("field", {}) or {}
