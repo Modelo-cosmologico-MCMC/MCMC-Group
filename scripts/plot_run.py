@@ -200,7 +200,6 @@ def plot_chain(outdir: Path) -> None:
 
     chain = np.load(chain_path)  # shape: (nsteps, nwalkers, ndim)
     nsteps, nwalkers, ndim = chain.shape
-    flat = chain.reshape(nsteps * nwalkers, ndim)
 
     # Parameter names (canonical order for effective backend)
     names = ["H0", "rho_b0", "rho0", "z_trans", "eps", "rd", "M"][:ndim]
