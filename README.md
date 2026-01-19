@@ -2,21 +2,36 @@
 
 Implementacion computacional del modelo cosmologico MCMC con arquitectura por bloques ontologicos y soporte de ajuste bayesiano (emcee) para el backend efectivo.
 
-## Arquitectura
+## Arquitectura Ontologica
 
-El MCMC se organiza en bloques ontologicos definidos sobre la variable discreta entropica **S**:
+El MCMC se organiza en dos regimenes principales definidos sobre la variable discreta entropica **S**:
+
+### Regimenes
+
+| Regimen | Rango S | Descripcion |
+|---------|--------:|-------------|
+| **Pre-BB** | [0, 1.001] | Regimen primordial: 4 colapsos, fijacion de constantes |
+| **Post-BB** | S > 1.001 | Cosmologia observable: expansion, estructuras, observables |
+
+### Umbrales Ontologicos (segun Manuscrito Maestro Zenodo)
+
+| Umbral | S aprox. | Transicion fisica |
+|--------|----------|-------------------|
+| Planck | 0.009 | Escala cuantico-gravitatoria |
+| GUT | 0.099 | Unificacion de fuerzas |
+| EW | 0.999 | Ruptura de simetria electrodebil |
+| **S_BB** | **1.001** | **Confinamiento QCD / Big Bang observable** |
+
+> **CRITICO:** S_BB = 1.001 es el **Big Bang observable** (4to latido/umbral), **NO** "hoy".
+> La evolucion del universo observable ocurre para **S > 1.001**.
+
+### Bloques de Implementacion
 
 | Bloque | Rango S | Descripcion |
 |--------|--------:|-------------|
-| Bloque 0 | [0.001, 0.009] | Estado pregeometrico y colapso primordial |
-| Bloque I | [0.010, 1.001] | Nucleo ontologico: Ley de Cronos C(S), T(S), Phi_ten(S), N(S) |
-| Bloque II | [0.010, 1.001] | Cosmologia efectiva: Friedmann normalizado y observables |
-
-### Sellos ontologicos
-- S1 = 0.010 (inicio post-geometrico)
-- S2 = 0.100 (transicion temprana)
-- S3 = 1.000 (transicion tardia)
-- S4 = 1.001 (hoy, normalizacion)
+| Bloque 0 | [0.001, 0.009] | Estado pregeometrico, campo tensional |
+| Bloque I | [0.010, 1.001] | Ley de Cronos: C(S), T(S), Phi_ten(S), N(S) |
+| Bloque II | Post-BB | Cosmologia efectiva: H(z), mu(z), BAO |
 
 ## Instalacion
 
@@ -33,10 +48,10 @@ pip install -e ".[dev]"
 ### CLI Unificado
 
 ```bash
-# Pipeline ontologico (Bloque 0 -> 1 -> 2)
+# Pipeline ontologico (pre-BB: Bloque 0 -> 1)
 mcmc run --config configs/run_base.yaml
 
-# Pipeline de inferencia (evaluate o fit segun run.mode en config)
+# Pipeline de inferencia post-BB (evaluate o fit segun run.mode)
 mcmc fit --config configs/run_base.yaml
 ```
 
@@ -49,7 +64,7 @@ python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode ev
 # Modo fit (emcee, solo backend effective)
 python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode fit
 
-# Modo ontologico (Bloque 0 -> 1 -> 2)
+# Modo ontologico (Bloque 0 -> 1)
 python scripts/wrappers/run_pipeline.py --config configs/run_base.yaml --mode ontological
 ```
 
@@ -86,16 +101,17 @@ run:
   nwalkers: 32
   nsteps: 500
 
+ontology:
+  S_BB: 1.001        # Big Bang observable (4to umbral)
+  thresholds: [0.009, 0.099, 0.999, 1.001]
+
 model:
   backend: "effective"  # effective | block1 | unified
 
 data:
   hz: "data/demo/hz.csv"
-  hz_cov: null
   sne: "data/demo/sne.csv"
-  sne_cov: null
   bao: "data/demo/bao.csv"
-  bao_cov: null
 
 effective:
   H0: 67.4
@@ -112,11 +128,11 @@ effective:
 
 | Backend | Descripcion | MCMC (emcee) |
 |---------|-------------|--------------|
-| `effective` | Bloque II parametrizado (rho_id + nuisance rd, M) | Si (`mode=fit`) |
-| `block1` | Bloque I ontologico directo | Solo evaluacion |
-| `unified` | Bloque I + puente densidades | Solo evaluacion |
+| `effective` | Cosmologia efectiva post-BB (rho_id parametrico) | Si (`mode=fit`) |
+| `block1` | Bloque I ontologico (pre-BB) | Solo evaluacion |
+| `unified` | Bloque I + puente a post-BB | Solo evaluacion |
 
-Nota: si `backend != effective` y `mode=fit`, el sistema ejecuta evaluacion y notifica en summary.txt.
+Nota: Los observables H(z), mu(z), BAO se calculan en regimen **post-BB**.
 
 ## Uso Programatico
 
@@ -131,9 +147,9 @@ cfg = yaml.safe_load(open("configs/run_base.yaml", encoding="utf-8"))
 model = build_model_from_config(cfg)
 
 z = np.linspace(0.01, 2, 200)
-H = model["H(z)"](z)
-mu = model["mu(z)"](z)
-dvrd = model["DVrd(z)"](z)
+H = model["H(z)"](z)      # H(z) post-BB
+mu = model["mu(z)"](z)    # Modulo de distancia
+dvrd = model["DVrd(z)"](z)  # BAO observable
 ```
 
 ### Ejecutar pipeline desde Python
@@ -144,25 +160,6 @@ from mcmc.pipeline import run_from_config
 out = run_from_config("configs/run_base.yaml")
 print(f"Log-likelihood: {out.loglike:.8f}")
 print(f"Output: {out.outdir}")
-```
-
-### Pipeline ontologico
-
-```python
-from mcmc.pipeline import load_config, run_pipeline
-
-cfg = load_config("configs/run_base.yaml")
-out = run_pipeline(cfg)
-
-# Bloque 0
-print(f"Mp_pre final: {out.block0.Mp_pre[-1]:.6f}")
-
-# Bloque 1
-print(f"a(S4): {out.block1.a[-1]:.10f}")
-print(f"z(S4): {out.block1.z[-1]:.10f}")
-
-# Bloque 2
-print(f"H_eff(z=0): {out.block2.H_eff[-1]:.4f} km/s/Mpc")
 ```
 
 ## Datasets
@@ -205,9 +202,9 @@ python scripts/plot_run.py --latest
 MCMC-Group/
 ├── src/mcmc/
 │   ├── blocks/          # Bloques ontologicos (block0, block1, block2)
-│   ├── core/            # S-grid, background, Friedmann
+│   ├── core/            # S-grid, ontology, Cronos, Friedmann
 │   ├── channels/        # rho_id, rho_lat
-│   ├── observables/     # Distancias, chi2, likelihoods
+│   ├── observables/     # Distancias, chi2, likelihoods (post-BB)
 │   ├── models/          # API unificada (effective, block1, unified)
 │   ├── pipeline/        # Config, run, inference
 │   ├── inference/       # emcee, postprocess
@@ -228,11 +225,14 @@ MCMC-Group/
 El archivo `docs/theory/MCMC_ECUACIONES_BASE.txt` define el contrato de ecuaciones fundamentales.
 Cualquier cambio en ecuaciones debe reflejarse en este documento.
 
+Referencia: [MCMC Maestro en Zenodo](https://zenodo.org/records/15556310)
+
 ## Invariantes del Modelo
 
-1. **Dualidad de masas:** Mp(S) + Ep(S) = 1.0 para todo S
-2. **Normalizacion:** a(S4) = 1, z(S4) = 0, H(S4) = H0
-3. **Friedmann normalizado:** H(z=0) = H0 exactamente
+1. **Dualidad de masas:** Mp(S) + Ep(S) = 1.0 para todo S (pre-BB)
+2. **Big Bang observable:** S_BB = 1.001 marca la transicion al universo observable
+3. **Observables post-BB:** H(z), mu(z), BAO definidos para z >= 0 (S > S_BB)
+4. **Friedmann normalizado:** H(z=0) = H0 exactamente (en post-BB)
 
 ## Licencia
 
