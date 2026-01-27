@@ -4,6 +4,9 @@ from .rho_id_refined import RhoIDRefinedParams as RhoIDRefinedParams
 from .rho_id_refined import rho_id_refined as rho_id_refined
 from .rho_lat_parametric import RhoLatParams as RhoLatParams
 from .rho_lat_parametric import rho_lat_of_S as rho_lat_of_S
+from .rho_lat import LatentChannel as LatentChannel
+from .rho_lat import LatentChannelParams as LatentChannelParams
+from .rho_lat import hubble_correction_lat as hubble_correction_lat
 
 __all__ = [
     "RhoIDParams",
@@ -12,4 +15,7 @@ __all__ = [
     "rho_id_refined",
     "RhoLatParams",
     "rho_lat_of_S",
+    "LatentChannel",
+    "LatentChannelParams",
+    "hubble_correction_lat",
 ]
