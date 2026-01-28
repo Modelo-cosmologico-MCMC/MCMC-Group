@@ -86,7 +86,7 @@ Las islas tensoriales (agujeros negros, cumulos) experimentan S_local < S_global
 |------|------|-------|
 | Masa determinada | Omega_b | 4.93% |
 | MCV (Masa Cuantica Virtual) | Omega_DM | 26.6% |
-| Ep (Espacio Primordial) | Omega_Lambda | 68.5% |
+| ECV (Espacio Cuantico Virtual) | Omega_Lambda | 68.5% |
 
 ### Bloques de Implementacion
 
