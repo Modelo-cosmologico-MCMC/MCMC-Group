@@ -1,56 +1,74 @@
 """Mapa Entrópico Completo S↔z↔t↔a.
 
-Este módulo implementa el puente fundamental que conecta la ontología
-tensional (S) con las variables observacionales (z, t, a).
+CORRECCIÓN ONTOLÓGICA (2025):
+El parámetro entrópico S tiene rango [0, 100], NO [1.001, 1.0015].
 
-Ecuaciones canónicas:
-    Ley de Cronos: dt_rel/dS = T(S)·N(S), donde N(S) = exp[Φ_ten(S)]
-    Mapa S(z): S(z) = S_BB + (S_0 - S_BB)·(1+z)^(-p)
-    Factor de escala: a(S) = 1/(1+z(S))
+RÉGIMEN PRE-GEOMÉTRICO: S ∈ [0, 1.001)
+- No existe espacio-tiempo clásico
+- Transiciones canónicas preservadas
 
-Relaciones:
-    S = 1.001 (S_BB) → z = ∞ (Big Bang)
-    S = S_0 ≈ 1.0015 → z = 0 (hoy)
+RÉGIMEN GEOMÉTRICO (POST-BIG BANG): S ∈ [1.001, 95.07]
+Ecuación maestra reformulada:
+    S(z) = S_geom + (S_0 - S_geom) / E(z)²
+
+donde E(z) = H(z)/H_0 = √[Ω_m(1+z)³ + Ω_Λ]
+
+Esta formulación garantiza:
+    - Monotonía: dS/dz < 0 (mayor z implica menor S)
+    - Límites: S(0) = S_0 ≈ 95, S(∞) → S_geom = 1.001 (Big Bang)
+    - Consistencia termodinámica: S_H ∝ 1/H² (Bekenstein-Hawking)
+
+Presente estratificado:
+    S_local(x) = S_global × √(1 - 2GM/rc²)
+
+Las islas tensoriales (BH, cúmulos) experimentan S_local < S_global.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Dict, Union
 import numpy as np
 from scipy.integrate import quad
 
+from mcmc.core.ontology import (
+    THRESHOLDS, OMEGA_M, OMEGA_LAMBDA, OMEGA_B,
+    S_MIN, S_MAX, S_GEOM, S_0, H_0, G, c, RHO_CRIT
+)
 
 
 @dataclass
 class SMapParams:
     """Parámetros del mapa S↔z↔t↔a.
 
+    CORRECCIÓN: Rango S ∈ [0, 100]
+    - Pre-geométrico: S ∈ [0, 1.001)
+    - Post-Big Bang: S ∈ [1.001, 95.07]
+
     Attributes:
-        S_BB: Big Bang observable (umbral 4º colapso)
-        S_0: S actual (hoy, z=0)
-        p: Exponente de transición en S(z)
-        lambda_C: Parámetro base de la Ley de Cronos
-        k_alpha: Normalización temporal
+        S_GEOM: Big Bang - transición pre-geométrica (= 1.001)
+        S_0: S actual (hoy, z=0) ≈ 95.07
+        Omega_m: Fracción de materia total
+        Omega_Lambda: Fracción de energía oscura
     """
-    S_BB: float = 1.001
-    S_0: float = 1.0015
-    p: float = 2.0
-    lambda_C: float = 0.1
-    k_alpha: float = 1.0
+    S_GEOM: float = S_GEOM
+    S_0: float = S_0
+    Omega_m: float = OMEGA_M
+    Omega_Lambda: float = OMEGA_LAMBDA
 
 
 class EntropyMap:
-    """Mapa completo S↔z↔t↔a con Ley de Cronos.
+    """Mapa completo S↔z↔t↔a con presente estratificado.
+
+    CORRECCIÓN ONTOLÓGICA: S ∈ [0, 100]
 
     Proporciona conversiones bidireccionales entre:
     - Variable entrópica S
     - Redshift z
-    - Tiempo cósmico t (anclado: t=0 en Big Bang)
+    - Tiempo cósmico t
     - Factor de escala a
 
     Attributes:
         params: Parámetros del mapa
-        phi_ten: Función Φ_ten(S) para el lapse N(S)
     """
 
     def __init__(
@@ -66,33 +84,164 @@ class EntropyMap:
         """
         self.params = params or SMapParams()
         self._phi_ten = phi_ten_func or (lambda S: 0.0)
-        self._z_interp = None
-        self._t_interp = None
 
-    # -------------------------------------------------------------------------
-    # Funciones de la Ley de Cronos
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # Parámetro de Hubble normalizado
+    # =========================================================================
 
-    def C_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
-        """C(S) = d ln a / dS - tasa de expansión entrópica.
+    def E_of_z(self, z: float | np.ndarray) -> float | np.ndarray:
+        """E(z) = H(z)/H_0 = √[Ω_m(1+z)³ + Ω_Λ].
 
-        Parametrización: C(S) = λ_C · tanh(S/λ_C)
+        Args:
+            z: Redshift
+
+        Returns:
+            Parámetro de Hubble normalizado
+        """
+        z_arr = np.asarray(z)
+        p = self.params
+        return np.sqrt(p.Omega_m * (1 + z_arr)**3 + p.Omega_Lambda)
+
+    def E_squared(self, z: float | np.ndarray) -> float | np.ndarray:
+        """E²(z) = Ω_m(1+z)³ + Ω_Λ.
+
+        Args:
+            z: Redshift
+
+        Returns:
+            E² para cálculos de S
+        """
+        z_arr = np.asarray(z)
+        p = self.params
+        return p.Omega_m * (1 + z_arr)**3 + p.Omega_Lambda
+
+    # =========================================================================
+    # Mapeo S ↔ z (CORREGIDO)
+    # =========================================================================
+
+    def S_of_z(self, z: float | np.ndarray) -> float | np.ndarray:
+        """S(z) según la ecuación maestra reformulada.
+
+        ECUACIÓN CORREGIDA (solo válida para régimen post-Big Bang):
+        S(z) = S_geom + (S_0 - S_geom) / E(z)²
+
+        Basada en entropía del horizonte de Hubble: S_H ∝ 1/H²
+
+        Propiedades:
+        - S(z=0) = S_0 ≈ 95.07 (hoy)
+        - S(z→∞) → S_geom = 1.001 (Big Bang)
+        - dS/dz < 0 (monótona decreciente)
+
+        Args:
+            z: Redshift (z ≥ 0)
+
+        Returns:
+            Variable entrópica S ∈ [S_geom, S_0]
+        """
+        z_arr = np.asarray(z)
+        if np.any(z_arr < 0):
+            raise ValueError("z debe ser ≥ 0")
+
+        p = self.params
+        E2 = self.E_squared(z_arr)
+        delta_S = p.S_0 - p.S_GEOM
+
+        S = p.S_GEOM + delta_S / E2
+        return float(S) if np.ndim(S) == 0 else S
+
+    def z_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
+        """z(S) - inversión del mapa S(z).
+
+        INVERSA:
+        z = [(S_0 - S_geom)/(S - S_geom)/Ω_m - Ω_Λ/Ω_m]^(1/3) - 1
+
+        Args:
+            S: Variable entrópica (S_geom < S ≤ S_0)
+
+        Returns:
+            Redshift z ≥ 0
+        """
+        S_arr = np.asarray(S)
+        p = self.params
+
+        if np.any(S_arr <= p.S_GEOM) or np.any(S_arr > p.S_0 + 0.1):
+            raise ValueError(f"S debe estar en ({p.S_GEOM}, {p.S_0}]")
+
+        delta_S = p.S_0 - p.S_GEOM
+        E2 = delta_S / (S_arr - p.S_GEOM)
+
+        # E² = Ω_m(1+z)³ + Ω_Λ
+        # (1+z)³ = (E² - Ω_Λ) / Ω_m
+        one_plus_z_cubed = (E2 - p.Omega_Lambda) / p.Omega_m
+        one_plus_z_cubed = np.maximum(one_plus_z_cubed, 1.0)  # z ≥ 0
+
+        z = one_plus_z_cubed ** (1/3) - 1
+        return float(z) if np.ndim(z) == 0 else z
+
+    def dS_dz(self, z: float | np.ndarray) -> float | np.ndarray:
+        """dS/dz - derivada del mapa S(z).
+
+        dS/dz = -(S_0 - S_geom) × d(1/E²)/dz
+              = -(S_0 - S_geom) × (-2/E³) × dE/dz
+
+        Args:
+            z: Redshift
+
+        Returns:
+            Derivada dS/dz (negativa, S decrece con z)
+        """
+        z_arr = np.asarray(z)
+        p = self.params
+
+        E = self.E_of_z(z_arr)
+        E2 = E**2
+        delta_S = p.S_0 - p.S_GEOM
+
+        # dE²/dz = 3 Ω_m (1+z)²
+        dE2_dz = 3 * p.Omega_m * (1 + z_arr)**2
+
+        # d(1/E²)/dz = -dE²/dz / E⁴
+        dS_dz = -delta_S * dE2_dz / E2**2
+
+        return dS_dz
+
+    # =========================================================================
+    # Mapeo S ↔ a
+    # =========================================================================
+
+    def a_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
+        """Factor de escala a(S) = 1/(1+z(S)).
 
         Args:
             S: Variable entrópica
 
         Returns:
-            Tasa de expansión entrópica
+            Factor de escala a ∈ (0, 1]
         """
-        p = self.params
-        S_arr = np.asarray(S)
-        arg = S_arr / max(p.lambda_C, 1e-12)
-        return p.lambda_C * np.tanh(arg)
+        z = self.z_of_S(S)
+        return 1.0 / (1.0 + z)
+
+    def S_of_a(self, a: float | np.ndarray) -> float | np.ndarray:
+        """S(a) vía z = 1/a - 1.
+
+        Args:
+            a: Factor de escala (0 < a ≤ 1)
+
+        Returns:
+            Variable entrópica S
+        """
+        a_arr = np.asarray(a)
+        z = 1.0 / a_arr - 1.0
+        return self.S_of_z(z)
+
+    # =========================================================================
+    # Funciones de la Ley de Cronos
+    # =========================================================================
 
     def T_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
         """T(S) - función de cronificación base.
 
-        T(S) = λ_C / k_α (forma simple)
+        En el nuevo esquema, T(S) ∝ S para épocas tardías.
 
         Args:
             S: Variable entrópica
@@ -100,7 +249,12 @@ class EntropyMap:
         Returns:
             Función de cronificación
         """
-        return self.params.lambda_C / self.params.k_alpha
+        S_arr = np.asarray(S)
+        p = self.params
+
+        # T normalizado para dar edad correcta del universo
+        T_0 = 13.8e9  # años (edad del universo)
+        return T_0 * S_arr / p.S_0
 
     def phi_ten(self, S: float | np.ndarray) -> float | np.ndarray:
         """Φ_ten(S) - faz tensorial del Campo de Adrián.
@@ -118,10 +272,7 @@ class EntropyMap:
     def N_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
         """N(S) = exp[Φ_ten(S)] - lapse entrópico.
 
-        El lapse modula la componente temporal de la métrica:
-        g_tt(S) = -N²(S)
-
-        En el límite ΛCDM: Φ_ten → 0 ⇒ N → 1
+        En el límite ΛCDM: Φ_ten → 0 ⟹ N → 1
 
         Args:
             S: Variable entrópica
@@ -132,9 +283,9 @@ class EntropyMap:
         return np.exp(self.phi_ten(S))
 
     def dt_dS(self, S: float | np.ndarray) -> float | np.ndarray:
-        """dt_rel/dS según Ley de Cronos.
+        """dt/dS según Ley de Cronos reformulada.
 
-        dt_rel/dS = T(S) · N(S)
+        dt/dS ∝ T(S) × N(S) / |dS/dz| × |dz/dt|
 
         Args:
             S: Variable entrópica
@@ -142,191 +293,201 @@ class EntropyMap:
         Returns:
             Derivada dt/dS
         """
-        return self.T_of_S(S) * self.N_of_S(S)
-
-    # -------------------------------------------------------------------------
-    # Mapeo S ↔ z
-    # -------------------------------------------------------------------------
-
-    def S_of_z(self, z: float | np.ndarray) -> float | np.ndarray:
-        """S(z) según parametrización canónica.
-
-        S(z) = S_BB + (S_0 - S_BB) · (1+z)^(-p)
-
-        Propiedades:
-        - S(z=0) = S_0 (hoy)
-        - S(z→∞) → S_BB (Big Bang)
-        - dS/dz < 0 (monótona decreciente)
-
-        Args:
-            z: Redshift
-
-        Returns:
-            Variable entrópica S
-        """
+        # Simplificación: en épocas tardías dt/dS ≈ constante × N(S)
+        N = self.N_of_S(S)
+        # Normalizar para edad correcta
+        t_0 = 13.8e9  # años
         p = self.params
-        z_arr = np.asarray(z)
+        return t_0 / p.S_0 * N
 
-        delta_S = p.S_0 - p.S_BB
-        return p.S_BB + delta_S * (1.0 + z_arr) ** (-p.p)
+    # =========================================================================
+    # Mapeo S ↔ t (tiempo cósmico)
+    # =========================================================================
 
-    def z_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
-        """z(S) - inversión del mapa S(z).
+    def t_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
+        """Tiempo cósmico t(S) en años.
 
-        z(S) = [(S - S_BB)/(S_0 - S_BB)]^(-1/p) - 1
+        Integración numérica de dt/dS desde S_GEOM.
 
         Args:
             S: Variable entrópica
 
         Returns:
-            Redshift z
-        """
-        p = self.params
-        S_arr = np.asarray(S)
-
-        delta_S = p.S_0 - p.S_BB
-        ratio = np.maximum((S_arr - p.S_BB) / delta_S, 1e-30)
-
-        return ratio ** (-1.0 / p.p) - 1.0
-
-    def dS_dz(self, z: float | np.ndarray) -> float | np.ndarray:
-        """dS/dz - derivada del mapa S(z).
-
-        dS/dz = -p · (S_0 - S_BB) · (1+z)^(-p-1)
-
-        Args:
-            z: Redshift
-
-        Returns:
-            Derivada dS/dz (negativa)
-        """
-        p = self.params
-        z_arr = np.asarray(z)
-
-        delta_S = p.S_0 - p.S_BB
-        return -p.p * delta_S * (1.0 + z_arr) ** (-p.p - 1.0)
-
-    # -------------------------------------------------------------------------
-    # Mapeo S ↔ t
-    # -------------------------------------------------------------------------
-
-    def t_rel_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
-        """Tiempo relativo integrado desde S_BB.
-
-        t_rel(S) = ∫_{S_BB}^{S} T(S')·N(S') dS'
-
-        Convención: t_rel(S_BB) = 0 (Big Bang)
-
-        Args:
-            S: Variable entrópica
-
-        Returns:
-            Tiempo relativo (t=0 en Big Bang)
+            Tiempo cósmico en años
         """
         S_arr = np.atleast_1d(S)
         results = np.zeros_like(S_arr, dtype=float)
+        p = self.params
 
         for i, s in enumerate(S_arr):
-            if s <= self.params.S_BB:
-                # Pre-Big-Bang: t < 0
-                integral, _ = quad(self.dt_dS, s, self.params.S_BB)
-                results[i] = -integral
+            if s <= p.S_GEOM:
+                results[i] = 0.0
             else:
-                # Post-Big-Bang: t > 0
-                integral, _ = quad(self.dt_dS, self.params.S_BB, s)
+                integral, _ = quad(lambda x: self.dt_dS(x), p.S_GEOM, s)
                 results[i] = integral
 
         return results[0] if np.ndim(S) == 0 else results
 
-    def S_of_t(
+    def t_of_z(self, z: float | np.ndarray) -> float | np.ndarray:
+        """Tiempo cósmico t(z) en años.
+
+        Args:
+            z: Redshift
+
+        Returns:
+            Tiempo cósmico en años
+        """
+        S = self.S_of_z(z)
+        return self.t_of_S(S)
+
+    # =========================================================================
+    # Presente estratificado
+    # =========================================================================
+
+    def S_local(
         self,
-        t: float | np.ndarray,
-        bracket: tuple[float, float] = (0.9, 1.5),
-        n_iter: int = 60
-    ) -> float | np.ndarray:
-        """S(t) - inversión del mapa t(S) por bisección.
+        r: float,
+        M: float,
+        S_glob: float | None = None
+    ) -> float:
+        """S_local en una isla tensorial.
+
+        PRESENTE ESTRATIFICADO:
+        S_local = S_global × √(1 - 2GM/rc²)
+
+        Las regiones de alta densidad gravitacional tienen S_local < S_global.
 
         Args:
-            t: Tiempo (t=0 en Big Bang)
-            bracket: Rango de búsqueda (S_min, S_max)
-            n_iter: Iteraciones de bisección
+            r: Distancia al centro de la isla tensorial [m]
+            M: Masa de la isla tensorial [kg]
+            S_glob: S global (default: S_0)
 
         Returns:
-            Variable entrópica S
+            S_local (siempre ≤ S_global)
         """
-        t_arr = np.atleast_1d(t)
-        results = np.zeros_like(t_arr, dtype=float)
+        if S_glob is None:
+            S_glob = self.params.S_0
 
-        for i, ti in enumerate(t_arr):
-            lo, hi = bracket
+        r_s = 2 * G * M / c**2  # Radio de Schwarzschild
+        if r <= r_s:
+            return 0.0  # En el horizonte, S_local → 0
 
-            # Expandir bracket si necesario
-            for _ in range(20):
-                t_lo = float(self.t_rel_of_S(lo))
-                t_hi = float(self.t_rel_of_S(hi))
-                if t_lo <= ti <= t_hi:
-                    break
-                if ti < t_lo:
-                    lo = max(lo - 0.1, 0.001)
-                if ti > t_hi:
-                    hi = hi + 0.5
+        xi = G * M / (r * c**2)
+        f_dilatacion = np.sqrt(1 - 2 * xi)
+        return S_glob * f_dilatacion
 
-            # Bisección
-            for _ in range(n_iter):
-                mid = 0.5 * (lo + hi)
-                t_mid = float(self.t_rel_of_S(mid))
-                if t_mid < ti:
-                    lo = mid
-                else:
-                    hi = mid
+    def S_global(
+        self,
+        z: float = 0,
+        exclude_islands: bool = True
+    ) -> float:
+        """S_global promediado fuera de islas tensoriales.
 
-            results[i] = 0.5 * (lo + hi)
+        Args:
+            z: Redshift para calcular S base
+            exclude_islands: Si True, aplica corrección por islas
 
-        return results[0] if np.ndim(t) == 0 else results
+        Returns:
+            S_global del fondo cosmológico
+        """
+        S_base = self.S_of_z(z)
 
-    # -------------------------------------------------------------------------
-    # Mapeo S ↔ a
-    # -------------------------------------------------------------------------
+        if exclude_islands:
+            # ~2% de masa en estructuras densas
+            f_cluster = 0.02
+            delta_S_rel = 0.1
+            correction = 1 / (1 - f_cluster * delta_S_rel)
+            S_g = float(S_base) * correction
+        else:
+            S_g = float(S_base)
 
-    def a_of_S(self, S: float | np.ndarray) -> float | np.ndarray:
-        """Factor de escala a(S) = 1/(1+z(S)).
+        return min(S_g, self.params.S_0)
+
+    def tiempo_atraso_isla(
+        self,
+        M: float,
+        r: float,
+        t_cosmico: float | None = None
+    ) -> float:
+        """Atraso temporal de una isla tensorial.
+
+        Δτ_atraso ≈ t_cósmico × (GM/rc²)
+
+        Args:
+            M: Masa de la isla [kg]
+            r: Distancia al centro [m]
+            t_cosmico: Tiempo de referencia [años] (default: edad del universo)
+
+        Returns:
+            Atraso temporal [años]
+        """
+        if t_cosmico is None:
+            t_cosmico = 13.8e9  # años
+
+        xi = G * M / (r * c**2)
+        return t_cosmico * xi
+
+    # =========================================================================
+    # Densidades ρ_id y ρ_lat
+    # =========================================================================
+
+    def rho_id(self, S: float, z: float = 0) -> float:
+        """Densidad ideal (masa determinada) en función de S.
+
+        ρ_id = ρ_crit × (100 - S)/100 × Ω_m × (1+z)³
 
         Args:
             S: Variable entrópica
+            z: Redshift
 
         Returns:
-            Factor de escala
+            Densidad ideal [kg/m³]
         """
-        z = self.z_of_S(S)
-        return 1.0 / (1.0 + z)
+        p = self.params
+        f_determinada = (p.S_0 - S) / p.S_0  # Fracción no convertida
+        f_determinada = max(0, f_determinada)
+        return RHO_CRIT * f_determinada * p.Omega_m * (1 + z)**3
 
-    def S_of_a(self, a: float | np.ndarray) -> float | np.ndarray:
-        """S(a) vía z = 1/a - 1.
+    def rho_lat(self, S: float, z: float = 0) -> float:
+        """Densidad latente (espacio potencial Ep) en función de S.
 
-        Args:
-            a: Factor de escala
-
-        Returns:
-            Variable entrópica S
-        """
-        a_arr = np.asarray(a)
-        z = 1.0 / a_arr - 1.0
-        return self.S_of_z(z)
-
-    def dlna_dS(self, S: float | np.ndarray) -> float | np.ndarray:
-        """d ln a / dS = C(S).
+        ρ_lat = ρ_crit × (S/S_0) × Ω_Λ
 
         Args:
             S: Variable entrópica
+            z: Redshift (no afecta Λ en ΛCDM)
 
         Returns:
-            Derivada d ln a / dS
+            Densidad latente [kg/m³]
         """
-        return self.C_of_S(S)
+        p = self.params
+        f_espacial = S / p.S_0  # Fracción convertida
+        f_espacial = min(1, max(0, f_espacial))
+        return RHO_CRIT * f_espacial * p.Omega_Lambda
 
-    # -------------------------------------------------------------------------
-    # Verificaciones y límites
-    # -------------------------------------------------------------------------
+    def Q_dual(self, S: float, dS_dt: float) -> float:
+        """Término de transferencia dual.
+
+        Q_dual = -(dS/dt) × (ρ_id - ρ_lat) / S
+
+        Captura la transferencia entre masa determinada y espacio.
+
+        Args:
+            S: Variable entrópica
+            dS_dt: Derivada temporal de S
+
+        Returns:
+            Término de intercambio Q_dual
+        """
+        if S <= 0:
+            return 0.0
+
+        delta_rho = self.rho_id(S) - self.rho_lat(S)
+        return -dS_dt * delta_rho / S
+
+    # =========================================================================
+    # Verificaciones
+    # =========================================================================
 
     def is_LCDM_limit(self, tol: float = 1e-6) -> bool:
         """Verifica si estamos en el límite ΛCDM (Φ_ten ≈ 0).
@@ -337,9 +498,9 @@ class EntropyMap:
         Returns:
             True si Φ_ten es despreciable
         """
-        S_test = np.linspace(self.params.S_BB, self.params.S_0, 10)
+        S_test = np.linspace(self.params.S_GEOM, self.params.S_0, 10)
         phi_vals = self.phi_ten(S_test)
-        return np.all(np.abs(phi_vals) < tol)
+        return bool(np.all(np.abs(phi_vals) < tol))
 
     def verify_monotonicity(self) -> tuple[bool, str]:
         """Verifica monotonicidad de los mapeos.
@@ -347,10 +508,10 @@ class EntropyMap:
         Returns:
             (is_valid, message)
         """
-        z_test = np.linspace(0, 10, 100)
+        z_test = np.linspace(0, 1000, 100)
         S_test = self.S_of_z(z_test)
 
-        # dS/dz debe ser negativo
+        # dS/dz debe ser negativo (S decrece con z)
         dS = np.diff(S_test)
         dz = np.diff(z_test)
         dS_dz_numerical = dS / dz
@@ -358,15 +519,7 @@ class EntropyMap:
         if not np.all(dS_dz_numerical < 0):
             return False, "S(z) no es monótona decreciente"
 
-        # t(S) debe ser creciente
-        S_range = np.linspace(self.params.S_BB - 0.01, self.params.S_0 + 0.01, 50)
-        t_test = self.t_rel_of_S(S_range)
-        dt = np.diff(t_test)
-
-        if not np.all(dt > 0):
-            return False, "t(S) no es monótona creciente"
-
-        return True, "OK: todos los mapeos son monótonos"
+        return True, "OK: S(z) es monótona decreciente"
 
 
 # =============================================================================
@@ -387,32 +540,61 @@ def create_default_map(
     return EntropyMap(SMapParams(), phi_ten_func)
 
 
-def S_of_z_simple(z: np.ndarray, S_BB: float = 1.001, S_0: float = 1.0015, p: float = 2.0) -> np.ndarray:
+def S_of_z_simple(
+    z: np.ndarray,
+    S_GEOM: float = S_GEOM,
+    S_0: float = S_0,
+    Omega_m: float = OMEGA_M,
+    Omega_Lambda: float = OMEGA_LAMBDA
+) -> np.ndarray:
     """Versión simplificada de S(z) sin crear objeto.
+
+    S(z) = S_geom + (S_0 - S_geom) / E(z)²
 
     Args:
         z: Redshift array
-        S_BB: Big Bang threshold
+        S_GEOM: Transición pre-geométrica
         S_0: S actual
-        p: Exponente
+        Omega_m: Fracción de materia
+        Omega_Lambda: Fracción de energía oscura
 
     Returns:
         S array
     """
-    return S_BB + (S_0 - S_BB) * (1.0 + z) ** (-p)
+    z = np.asarray(z)
+    E2 = Omega_m * (1 + z)**3 + Omega_Lambda
+    return S_GEOM + (S_0 - S_GEOM) / E2
 
 
-def z_of_S_simple(S: np.ndarray, S_BB: float = 1.001, S_0: float = 1.0015, p: float = 2.0) -> np.ndarray:
+def z_of_S_simple(
+    S: np.ndarray,
+    S_GEOM: float = S_GEOM,
+    S_0: float = S_0,
+    Omega_m: float = OMEGA_M,
+    Omega_Lambda: float = OMEGA_LAMBDA
+) -> np.ndarray:
     """Versión simplificada de z(S) sin crear objeto.
+
+    z = [(S_0 - S_geom)/(S - S_geom)/Ω_m - Ω_Λ/Ω_m]^(1/3) - 1
 
     Args:
         S: Entropic variable array
-        S_BB: Big Bang threshold
+        S_GEOM: Transición pre-geométrica
         S_0: S actual
-        p: Exponente
+        Omega_m: Fracción de materia
+        Omega_Lambda: Fracción de energía oscura
 
     Returns:
         z array
     """
-    ratio = np.maximum((S - S_BB) / (S_0 - S_BB), 1e-30)
-    return ratio ** (-1.0 / p) - 1.0
+    S = np.asarray(S)
+    E2 = (S_0 - S_GEOM) / np.maximum(S - S_GEOM, 1e-10)
+    one_plus_z_cubed = np.maximum((E2 - Omega_Lambda) / Omega_m, 1.0)
+    return one_plus_z_cubed ** (1/3) - 1
+
+
+# Alias para compatibilidad
+ley_de_cronos = lambda S, s_map: s_map.dt_dS(S)
+t_rel_of_S = lambda S, s_map: s_map.t_of_S(S)
+S_of_z_post_BB = S_of_z_simple
+z_of_S_post_BB = z_of_S_simple

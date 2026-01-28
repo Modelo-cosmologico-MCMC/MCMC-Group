@@ -1,5 +1,16 @@
 """Campo de Adrián Φ_Ad - Regulador tensional fundamental.
 
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+
+RÉGIMEN PRE-GEOMÉTRICO: S ∈ [0, 1.001)
+- Transiciones canónicas preservadas (S = 0.001, 0.01, 0.1, 0.5)
+- No existe espacio-tiempo clásico
+- Φ_Ad modula la tensión Mp/Ep primordial
+
+RÉGIMEN GEOMÉTRICO (POST-BIG BANG): S ∈ [1.001, 95.07]
+- Big Bang en S = 1.001
+- Transiciones post-Big Bang (formación estructuras, presente)
+
 El Campo de Adrián media la tensión Mp/Ep mediante dos componentes:
     - Faz escalar Φ_esc: Liberación de energía en transiciones
     - Faz tensorial Φ_ten: Estructura relacional y curvatura
@@ -19,33 +30,39 @@ from typing import List
 import numpy as np
 from scipy.integrate import odeint
 
+from mcmc.core.ontology import THRESHOLDS, S_0, S_GEOM
 
 
 @dataclass
 class AdrianFieldParams:
     """Parámetros del Campo de Adrián.
 
+    CORRECCIÓN: S ∈ [0, 100]
+    - Pre-geométrico: S ∈ [0, 1.001)
+    - Post-Big Bang: S ∈ [1.001, 95.07]
+
     Attributes:
         V0: Nivel base del vacío (energía mínima)
         alpha_S: Acoplamiento S-Φ² (masa efectiva dependiente de S)
         lambda_4: Autointeracción cuártica
         v_vac: VEV (valor esperado del vacío, escala electrodébil)
-        K_0: Rigidez tensional base K(S)
+        K_0: Rigidez tensorial base K(S)
         K_slope: Variación de K con S
         lambda_smooth: Anchura de suavización de Θ_λ
     """
     V0: float = 1.0
-    alpha_S: float = 0.01
+    alpha_S: float = 0.0001  # Reducido para nuevo rango de S
     lambda_4: float = 0.1
     v_vac: float = 246.0  # GeV (escala Higgs)
     K_0: float = 1.0
     K_slope: float = 0.0
-    lambda_smooth: float = 0.001
+    lambda_smooth: float = 0.1  # Menor para transiciones más precisas
 
     # Parámetros para Φ_ten
+    # CORRECCIÓN: phi_ten_center ahora en régimen post-Big Bang
     phi_ten_amplitude: float = 0.01
-    phi_ten_center: float = 0.999  # S_EW
-    phi_ten_width: float = 0.01
+    phi_ten_center: float = 48.0   # Mitad del rango post-Big Bang
+    phi_ten_width: float = 10.0    # Mayor para S ∈ [1.001, 95]
 
 
 @dataclass
@@ -65,12 +82,16 @@ class TransitionParams:
 class AdrianField:
     """Campo de Adrián con faz escalar y tensorial.
 
-    Implementa el regulador tensional fundamental del MCMC que media
+    CORRECCIÓN ONTOLÓGICA: S ∈ [0, 100]
+    - Pre-geométrico: S ∈ [0, 1.001) con transiciones canónicas
+    - Post-Big Bang: S ∈ [1.001, 95.07]
+
+    Implementa el regulador tensorial fundamental del MCMC que media
     la dualidad Masa Primordial / Espacio Primordial.
 
     Attributes:
         params: Parámetros del campo
-        transitions: Lista de transiciones ontológicas
+        transitions: Lista de transiciones ontológicas (pre y post Big Bang)
     """
 
     def __init__(
@@ -87,13 +108,21 @@ class AdrianField:
         self.params = params or AdrianFieldParams()
 
         if transitions is None:
-            # Transiciones canónicas
+            # Transiciones canónicas preservando régimen pre-geométrico
+            # PRE-GEOMÉTRICO: S ∈ [0, 1.001)
+            # POST-BIG BANG: S ∈ [1.001, 95.07]
             self.transitions = [
-                TransitionParams(S_n=0.001, v_n=0.0, beta_n=0.1),    # S₁: Planck
-                TransitionParams(S_n=0.010, v_n=0.0, beta_n=0.5),    # S₂
-                TransitionParams(S_n=0.100, v_n=0.0, beta_n=1.0),    # S₃: GUT
-                TransitionParams(S_n=1.000, v_n=246.0, beta_n=1.0),  # S₄: EW
-                TransitionParams(S_n=1.001, v_n=246.0, beta_n=0.1),  # S₅: BB
+                # === Régimen Pre-Geométrico (S < 1.001) ===
+                TransitionParams(S_n=0.001, v_n=0.0, beta_n=0.05),  # Primordial
+                TransitionParams(S_n=0.01, v_n=0.0, beta_n=0.1),    # Trans pre-geom 1
+                TransitionParams(S_n=0.1, v_n=0.0, beta_n=0.2),     # Trans pre-geom 2
+                TransitionParams(S_n=0.5, v_n=0.0, beta_n=0.3),     # Trans pre-geom 3
+                # === Big Bang: S = 1.001 ===
+                TransitionParams(S_n=1.001, v_n=0.0, beta_n=1.0),   # Big Bang
+                # === Régimen Post-Big Bang (S ≥ 1.001) ===
+                TransitionParams(S_n=2.0, v_n=0.0, beta_n=0.8),     # Primeras estructuras
+                TransitionParams(S_n=47.5, v_n=246.0, beta_n=1.0),  # Pico formación estelar
+                TransitionParams(S_n=95.0, v_n=246.0, beta_n=0.1),  # Presente
             ]
         else:
             self.transitions = transitions
@@ -272,14 +301,14 @@ class AdrianField:
     def Phi_ten(self, S: float | np.ndarray) -> float | np.ndarray:
         """Faz tensorial Φ_ten(S) - modula g_tt.
 
-        Parametrización simple: transición suave cerca de S_EW.
+        Parametrización simple: transición suave.
 
         Φ_ten(S) = A · tanh[(S - S_c) / w]
 
         El lapse es N(S) = exp[Φ_ten(S)]
 
         Args:
-            S: Variable entrópica
+            S: Variable entrópica (ahora en [0, 100])
 
         Returns:
             Faz tensorial Φ_ten
@@ -313,7 +342,7 @@ class AdrianField:
         Aproximación simple: Φ_esc decrece con S hacia el VEV.
 
         Args:
-            S: Variable entrópica
+            S: Variable entrópica (ahora en [0, 100])
 
         Returns:
             Faz escalar Φ_esc
@@ -321,12 +350,12 @@ class AdrianField:
         p = self.params
         S_arr = np.asarray(S)
 
-        # Transición al VEV cerca de S_BB
-        S_BB = 1.001
-        transition = self.Theta_lambda(S_arr - S_BB)
+        # CORRECCIÓN: Usar S_0 ≈ 95 en lugar de 1.001
+        S_ref = S_0  # ≈ 95.07
+        transition = self.Theta_lambda(S_arr - S_ref * 0.5)
 
         # Interpolación simple hacia el VEV
-        Phi_early = p.v_vac * np.sqrt(np.maximum(1 - (S_arr / S_BB)**2, 0))
+        Phi_early = p.v_vac * np.sqrt(np.maximum(1 - (S_arr / S_ref)**2, 0))
         Phi_late = p.v_vac
 
         return (1 - transition) * Phi_early + transition * Phi_late
@@ -349,37 +378,37 @@ class AdrianField:
             S: Variable entrópica
 
         Returns:
-            Derivada [dΦ/dS, d²Φ/dS²]
+            Derivadas [dΦ/dS, d²Φ/dS²]
         """
         Phi, dPhi_dS = y
 
-        K = float(self.K_of_S(S))
-        dK = float(self.dK_dS(S))
-        dV = float(self.dV_dPhi(Phi, S))
+        K = self.K_of_S(S)
+        dK = self.dK_dS(S)
+        dV = self.dV_dPhi(Phi, S)
 
-        K_safe = max(K, 1e-12)
+        K = max(K, 1e-12)
 
-        d2Phi_dS2 = -(dK / K_safe) * dPhi_dS - (1.0 / K_safe) * dV
+        d2Phi_dS2 = -(dK / K) * dPhi_dS - (1 / K) * dV
 
         return np.array([dPhi_dS, d2Phi_dS2])
 
-    def solve_field_evolution(
+    def solve_eom(
         self,
         S_range: tuple[float, float],
         Phi_init: float,
-        dPhi_init: float = 0.0,
+        dPhi_init: float,
         n_points: int = 1000
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Resuelve la evolución del campo en S.
+        """Resuelve la ecuación de movimiento.
 
         Args:
             S_range: (S_min, S_max)
-            Phi_init: Condición inicial Φ(S_min)
-            dPhi_init: Condición inicial dΦ/dS(S_min)
+            Phi_init: Valor inicial de Φ
+            dPhi_init: Valor inicial de dΦ/dS
             n_points: Número de puntos
 
         Returns:
-            (S_array, Phi_array, dPhi_array)
+            (S_arr, Phi_arr, dPhi_arr)
         """
         S_arr = np.linspace(S_range[0], S_range[1], n_points)
         y0 = [Phi_init, dPhi_init]
@@ -389,14 +418,20 @@ class AdrianField:
         return S_arr, sol[:, 0], sol[:, 1]
 
     # -------------------------------------------------------------------------
-    # Densidad y presión
+    # Densidades y presiones
     # -------------------------------------------------------------------------
 
-    def rho_Ad(self, Phi: float, dPhi_dS: float, S: float, dS_dt: float) -> float:
-        """Densidad del Campo de Adrián.
+    def rho_Ad(
+        self,
+        Phi: float,
+        dPhi_dS: float,
+        S: float,
+        dS_dt: float
+    ) -> float:
+        """Densidad de energía del Campo de Adrián.
 
-        ρ_Ad = ½ Φ̇² + V(Φ; S)
-             = ½ (dΦ/dS)² (dS/dt)² + V(Φ; S)
+        ρ_Ad = ½ K(S) (dΦ/dt)² + V(Φ; S)
+             = ½ K(S) (dΦ/dS)² (dS/dt)² + V(Φ; S)
 
         Args:
             Phi: Campo
@@ -405,16 +440,23 @@ class AdrianField:
             dS_dt: Derivada dS/dt
 
         Returns:
-            Densidad ρ_Ad
+            Densidad de energía
         """
-        kinetic = 0.5 * (dPhi_dS * dS_dt)**2
-        potential = float(self.V_eff(Phi, S))
-        return kinetic + potential
+        K = self.K_of_S(S)
+        V = self.V_eff(Phi, S)
+        kinetic = 0.5 * K * dPhi_dS**2 * dS_dt**2
+        return float(kinetic + V)
 
-    def p_Ad(self, Phi: float, dPhi_dS: float, S: float, dS_dt: float) -> float:
+    def p_Ad(
+        self,
+        Phi: float,
+        dPhi_dS: float,
+        S: float,
+        dS_dt: float
+    ) -> float:
         """Presión del Campo de Adrián.
 
-        p_Ad = ½ Φ̇² - V(Φ; S)
+        p_Ad = ½ K(S) (dΦ/dt)² - V(Φ; S)
 
         Args:
             Phi: Campo
@@ -423,11 +465,12 @@ class AdrianField:
             dS_dt: Derivada dS/dt
 
         Returns:
-            Presión p_Ad
+            Presión
         """
-        kinetic = 0.5 * (dPhi_dS * dS_dt)**2
-        potential = float(self.V_eff(Phi, S))
-        return kinetic - potential
+        K = self.K_of_S(S)
+        V = self.V_eff(Phi, S)
+        kinetic = 0.5 * K * dPhi_dS**2 * dS_dt**2
+        return float(kinetic - V)
 
     def w_Ad(self, Phi: float, dPhi_dS: float, S: float, dS_dt: float) -> float:
         """Ecuación de estado w_Ad = p_Ad/ρ_Ad.

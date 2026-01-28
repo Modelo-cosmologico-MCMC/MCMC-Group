@@ -1,5 +1,9 @@
 """Canal Latente ρ_lat(S) - Energía sellada y decaimiento entrópico.
 
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001) - Canal latente no activo
+- Post-Big Bang: S ∈ [1.001, 95.07] - Decaimiento entrópico activo
+
 El canal latente representa la Masa Cuántica Virtual (MCV): tensión sellada
 que no se manifiesta como materia convencional. Decae por conversión
 entrópica (no dilución adiabática) y su masa efectiva se invierte en
@@ -24,19 +28,23 @@ from scipy.integrate import quad, cumulative_trapezoid
 class LatentChannelParams:
     """Parámetros del canal latente ρ_lat(S).
 
+    CORRECCIÓN: S ∈ [0, 100]
+    - S_star = 1.001 corresponde al Big Bang
+    - Post-Big Bang: S ∈ [1.001, 95.07]
+
     Attributes:
         enabled: Si el canal está activo
         kappa_0: Coeficiente de decaimiento base
-        S_star: Punto de encendido del decaimiento (S_BB = 1.001)
-        dS_star: Anchura de transición
+        S_star: Punto de encendido del decaimiento (Big Bang = 1.001)
+        dS_star: Anchura de transición (mayor para nuevo rango)
         rho_lat_star: Densidad latente de referencia en unidades de ρ_c
         beta: Coeficiente de acople al tiempo relativo
     """
     enabled: bool = True
-    kappa_0: float = 0.1
-    S_star: float = 1.001
-    dS_star: float = 0.001
-    rho_lat_star: float = 0.01  # Fracción de ρ_c
+    kappa_0: float = 0.01          # Reducido para rango más amplio
+    S_star: float = 1.001          # Big Bang
+    dS_star: float = 1.0           # Anchura ajustada para S ∈ [1, 95]
+    rho_lat_star: float = 0.01     # Fracción de ρ_c
     beta: float = 1.0
 
 

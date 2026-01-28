@@ -1,4 +1,9 @@
-"""Tests para lambda_rel y q_dual en channels."""
+"""Tests para lambda_rel y q_dual en channels.
+
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001)
+- Post-Big Bang: S ∈ [1.001, 95.07]
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -127,9 +132,12 @@ class TestEtaFunctions:
         return QDualParams()
 
     def test_eta_lat_limits(self, params):
-        """η_lat → 0 para S << S_★, → 1 para S >> S_★."""
-        S_low = params.S_star - 0.5
-        S_high = params.S_star + 0.5
+        """η_lat → 0 para S << S_★, → 1 para S >> S_★.
+
+        CORRECCIÓN: S_star ahora ~48 para S ∈ [1.001, 95.07]
+        """
+        S_low = params.S_star - 20.0
+        S_high = params.S_star + 20.0
         eta_low = eta_lat_of_S(S_low, params)
         eta_high = eta_lat_of_S(S_high, params)
         assert eta_low < 0.5
@@ -143,9 +151,12 @@ class TestEtaFunctions:
         np.testing.assert_allclose(eta_lat + eta_id, 1.0, rtol=1e-10)
 
     def test_eta_smooth(self, params):
-        """η es suave (sin discontinuidades)."""
+        """η es suave (sin discontinuidades).
+
+        CORRECCIÓN: S ∈ [0, 100], transición más amplia
+        """
         # Test around the transition point
-        S = np.linspace(params.S_star - 0.01, params.S_star + 0.01, 100)
+        S = np.linspace(params.S_star - 5.0, params.S_star + 5.0, 100)
         eta = eta_lat_of_S(S, params)
         deta = np.diff(eta)
         # No debe haber saltos muy grandes
@@ -161,8 +172,11 @@ class TestQDual:
         return QDualParams(Q_amplitude=0.01)
 
     def test_Q_dual_sign(self, params):
-        """Q_dual puede ser + o - dependiendo de S."""
-        S_values = np.linspace(0.5, 1.5, 20)
+        """Q_dual puede ser + o - dependiendo de S.
+
+        CORRECCIÓN: S ∈ [0, 100]
+        """
+        S_values = np.linspace(10.0, 90.0, 20)
         # Q_dual cambia de signo según dη/dS y las densidades
         Q = Q_dual_simple(S_values, params)
         # Verificar que no explota
@@ -171,13 +185,16 @@ class TestQDual:
     def test_Q_dual_zero_amplitude(self):
         """Q_dual = 0 si Q_amplitude = 0."""
         params = QDualParams(Q_amplitude=0.0)
-        S = np.array([1.0])
+        S = np.array([50.0])
         Q = Q_dual_simple(S, params)
         np.testing.assert_allclose(Q, 0.0)
 
     def test_Q_dual_finite(self, params):
-        """Q_dual devuelve valores finitos."""
-        S = 1.0
+        """Q_dual devuelve valores finitos.
+
+        CORRECCIÓN: S ∈ [0, 100]
+        """
+        S = 50.0
         dV_dS = 0.01
         S_dot = 1.0
         Q_id, Q_lat = Q_dual(S, dV_dS, S_dot, params)
@@ -196,8 +213,11 @@ class TestCoupledChannelEvolver:
         return CoupledChannelEvolver(q_params=q_params)
 
     def test_evolve_returns_arrays(self, evolver):
-        """evolve retorna tres arrays."""
-        S_range = (1.001, 1.1)
+        """evolve retorna tres arrays.
+
+        CORRECCIÓN: S ∈ [1.001, 95.07] post-Big Bang
+        """
+        S_range = (2.0, 90.0)
         rho_id_init = 1e-30
         rho_lat_init = 1e-31
         S_arr, rho_id_arr, rho_lat_arr = evolver.evolve(
@@ -208,14 +228,20 @@ class TestCoupledChannelEvolver:
         assert len(rho_lat_arr) == 20
 
     def test_evolve_S_increases(self, evolver):
-        """S aumenta durante evolución."""
-        S_range = (1.001, 1.1)
+        """S aumenta durante evolución.
+
+        CORRECCIÓN: S ∈ [1.001, 95.07] post-Big Bang
+        """
+        S_range = (2.0, 90.0)
         S_arr, _, _ = evolver.evolve(S_range, 1e-30, 1e-31, n_points=20)
         assert S_arr[-1] > S_arr[0]
 
     def test_evolve_initial_values(self, evolver):
-        """Valores iniciales se preservan."""
-        S_range = (1.001, 1.01)
+        """Valores iniciales se preservan.
+
+        CORRECCIÓN: S ∈ [1.001, 95.07] post-Big Bang
+        """
+        S_range = (2.0, 10.0)
         rho_id_init = 1e-10
         rho_lat_init = 1e-11
         S_arr, rho_id_arr, rho_lat_arr = evolver.evolve(

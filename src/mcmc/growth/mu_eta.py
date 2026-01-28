@@ -1,5 +1,9 @@
 """Parámetros de gravedad modificada μ(a) y η(a).
 
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001) - No hay gravedad clásica
+- Post-Big Bang: S ∈ [1.001, 95.07] - Gravedad modificada parametrizada
+
 En el MCMC, las desviaciones de la gravedad de GR se parametrizan
 mediante dos funciones fenomenológicas:
 
@@ -13,7 +17,7 @@ Para GR: μ = η = 1.
 En el MCMC, estas desviaciones provienen de:
     1. El Campo de Adrián Φ_Ad que modifica la dinámica
     2. La tensión pre-geométrica del lapse N(S)
-    3. Acoplos efectivos en el régimen pre-BB
+    3. Acoplos efectivos cerca de transiciones
 
 Observaciones de RSD y lensing constrañen combinaciones:
     Σ = μ · (1 + η) / 2  (lensing)
@@ -197,6 +201,8 @@ class MuEtaFromS:
     ) -> float | np.ndarray:
         """η(S) desde la segunda derivada del potencial.
 
+        CORRECCIÓN: S ∈ [0, 100], post-Big Bang S ∈ [1.001, 95.07]
+
         η(S) = 1 + α_η · V''(Φ_esc) / V_0
 
         Args:
@@ -210,10 +216,12 @@ class MuEtaFromS:
 
         if V_second is None:
             # Modelo simple: desviación pequeña cerca de transiciones
-            S_EW = 0.999
-            S_BB = 1.001
-            deviation = np.exp(-100 * (S_arr - S_EW)**2)
-            deviation += np.exp(-100 * (S_arr - S_BB)**2)
+            # CORRECCIÓN: Transiciones en nuevo rango S ∈ [0, 100]
+            S_BB = 1.001    # Big Bang
+            S_peak = 47.5   # Pico formación estelar
+            # Gaussianas con anchura proporcional al nuevo rango
+            deviation = np.exp(-0.1 * (S_arr - S_BB)**2)
+            deviation += np.exp(-0.01 * (S_arr - S_peak)**2)
             return 1.0 + self.alpha_eta * deviation
 
         V_pp = np.vectorize(V_second)(S_arr)

@@ -1,5 +1,9 @@
 """Métrica Dual Relativa g_μν(S) del MCMC.
 
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001) - No existe geometría clásica
+- Post-Big Bang: S ∈ [1.001, 95.07] - Cosmología observable
+
 La Métrica Dual Relativa (MDR) es la cristalización geométrica de la
 dualidad Mp/Ep. Incorpora la tensión pre-geométrica a través del
 lapse entrópico N(S) = exp[Φ_ten(S)].
@@ -335,15 +339,17 @@ def create_LCDM_metric() -> DualRelativeMetric:
 
 def create_MCMC_metric(
     phi_ten_amplitude: float = 0.01,
-    phi_ten_center: float = 0.999,
-    phi_ten_width: float = 0.01
+    phi_ten_center: float = 48.0,
+    phi_ten_width: float = 10.0
 ) -> DualRelativeMetric:
     """Crea métrica MDR con desviación de ΛCDM.
 
+    CORRECCIÓN: S ∈ [0, 100], post-Big Bang S ∈ [1.001, 95.07]
+
     Args:
         phi_ten_amplitude: Amplitud de Φ_ten
-        phi_ten_center: Centro de la transición (default: S_EW)
-        phi_ten_width: Anchura de la transición
+        phi_ten_center: Centro de la transición (default: ~48, mitad post-BB)
+        phi_ten_width: Anchura de la transición (default: 10 para rango amplio)
 
     Returns:
         MDR con tensión no nula

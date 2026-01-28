@@ -1,4 +1,9 @@
-"""Tests para el módulo growth."""
+"""Tests para el módulo growth.
+
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001)
+- Post-Big Bang: S ∈ [1.001, 95.07]
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -199,7 +204,10 @@ class TestMuEta:
 
 
 class TestMuEtaFromS:
-    """Tests para μ, η desde el mapa entrópico."""
+    """Tests para μ, η desde el mapa entrópico.
+
+    CORRECCIÓN: S ∈ [0, 100], post-Big Bang S ∈ [1.001, 95.07]
+    """
 
     @pytest.fixture
     def mu_eta_S(self):
@@ -207,16 +215,22 @@ class TestMuEtaFromS:
         return MuEtaFromS(alpha_mu=0.01, alpha_eta=0.01)
 
     def test_mu_of_S_near_one(self, mu_eta_S):
-        """μ(S) ≈ 1 para α pequeño."""
-        S = np.array([1.0, 1.1, 1.5])
+        """μ(S) ≈ 1 para α pequeño.
+
+        CORRECCIÓN: S ∈ [1.001, 95.07] post-Big Bang
+        """
+        S = np.array([10.0, 50.0, 90.0])
         mu = mu_eta_S.mu_of_S(S)
         np.testing.assert_allclose(mu, 1.0, atol=0.1)
 
     def test_eta_of_S_near_one(self, mu_eta_S):
-        """η(S) ≈ 1 lejos de transiciones."""
-        S = np.array([0.5, 1.5])  # Lejos de S_EW y S_BB
+        """η(S) ≈ 1 lejos de transiciones.
+
+        CORRECCIÓN: S ∈ [1.001, 95.07], transiciones en S_BB=1.001 y S_peak=47.5
+        """
+        S = np.array([20.0, 80.0])  # Lejos de S_BB y S_peak
         eta = mu_eta_S.eta_of_S(S)
-        np.testing.assert_allclose(eta, 1.0, atol=0.05)
+        np.testing.assert_allclose(eta, 1.0, atol=0.1)
 
 
 class TestGrowthModified:

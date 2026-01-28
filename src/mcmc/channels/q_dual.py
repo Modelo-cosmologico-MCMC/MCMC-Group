@@ -1,5 +1,9 @@
 """Término de Intercambio Q_dual entre canales.
 
+CORRECCIÓN ONTOLÓGICA (2025): S ∈ [0, 100]
+- Pre-geométrico: S ∈ [0, 1.001) - No hay intercambio clásico
+- Post-Big Bang: S ∈ [1.001, 95.07] - Intercambio activo
+
 Q_dual acopla explícitamente ρ_id y ρ_lat, operacionalizando la
 relajación tensional Mp ↔ Ep.
 
@@ -30,13 +34,15 @@ from scipy.integrate import odeint
 class QDualParams:
     """Parámetros del intercambio Q_dual.
 
+    CORRECCIÓN: S ∈ [0, 100], post-Big Bang S ∈ [1.001, 95.07]
+
     Attributes:
-        S_star: Umbral de encendido del canal latente
+        S_star: Umbral de encendido del canal latente (en régimen post-BB)
         lambda_star: Anchura de la transición
         Q_amplitude: Amplitud base del intercambio
     """
-    S_star: float = 1.0005
-    lambda_star: float = 0.001
+    S_star: float = 48.0       # Mitad del rango post-Big Bang
+    lambda_star: float = 10.0  # Anchura amplia para S ∈ [1, 95]
     Q_amplitude: float = 0.01
 
 
@@ -211,8 +217,11 @@ class CoupledChannelEvolver:
         self.w_id = w_id
         self.w_lat = w_lat
         self.H_func = H_func or (lambda z: 67.4 * np.sqrt(0.315 * (1+z)**3 + 0.685))
-        self.z_of_S_func = z_of_S_func or (lambda S: 1e10 * (1.001 - S))
-        self.S_dot_func = S_dot_func or (lambda S: 0.001)  # dS/dt constante
+        # CORRECCIÓN: S ∈ [1.001, 95.07] para post-Big Bang
+        # z(S) inversa de S(z) = S_GEOM + (S_0 - S_GEOM)/E²(z)
+        # Aproximación lineal para valores por defecto
+        self.z_of_S_func = z_of_S_func or (lambda S: max(0, (95.07 - S) / 10.0))
+        self.S_dot_func = S_dot_func or (lambda S: 0.1)  # dS/dt ajustado para [1, 95]
 
     def rhs(self, y: np.ndarray, S: float) -> np.ndarray:
         """Lado derecho del sistema de ODEs.
