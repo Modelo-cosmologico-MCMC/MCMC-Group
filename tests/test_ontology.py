@@ -79,9 +79,8 @@ class TestEntropyMap:
         CORRECCIÓN: S ∈ [1.001, 95.07] post-Big Bang
         """
         S = 50.0  # Mid-range post-Big Bang
-        N = s_map.N_of_S(S)
         dt_dS = s_map.dt_dS(S)
-        # dt_dS es proporcional a N(S)
+        # dt_dS es proporcional a N(S) y debe ser finito y positivo
         assert np.isfinite(dt_dS)
         assert dt_dS > 0
 

@@ -30,7 +30,7 @@ from typing import List
 import numpy as np
 from scipy.integrate import odeint
 
-from mcmc.core.ontology import THRESHOLDS, S_0, S_GEOM
+from mcmc.core.ontology import S_0
 
 
 @dataclass

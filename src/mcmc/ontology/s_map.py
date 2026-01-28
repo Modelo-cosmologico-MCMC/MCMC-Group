@@ -26,13 +26,13 @@ Las islas tensoriales (BH, cúmulos) experimentan S_local < S_global.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Dict, Union
+from typing import Callable
 import numpy as np
 from scipy.integrate import quad
 
 from mcmc.core.ontology import (
-    THRESHOLDS, OMEGA_M, OMEGA_LAMBDA, OMEGA_B,
-    S_MIN, S_MAX, S_GEOM, S_0, H_0, G, c, RHO_CRIT
+    OMEGA_M, OMEGA_LAMBDA,
+    S_GEOM, S_0, G, c, RHO_CRIT
 )
 
 
@@ -594,7 +594,15 @@ def z_of_S_simple(
 
 
 # Alias para compatibilidad
-ley_de_cronos = lambda S, s_map: s_map.dt_dS(S)
-t_rel_of_S = lambda S, s_map: s_map.t_of_S(S)
+def ley_de_cronos(S, s_map):
+    """Alias: dt_rel/dS."""
+    return s_map.dt_dS(S)
+
+
+def t_rel_of_S(S, s_map):
+    """Alias: t(S)."""
+    return s_map.t_of_S(S)
+
+
 S_of_z_post_BB = S_of_z_simple
 z_of_S_post_BB = z_of_S_simple
