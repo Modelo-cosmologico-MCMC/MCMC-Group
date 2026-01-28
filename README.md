@@ -2,6 +2,19 @@
 
 Implementacion computacional del modelo cosmologico MCMC con arquitectura por bloques ontologicos y soporte de ajuste bayesiano (emcee) para el backend efectivo.
 
+## Correccion Ontologica 2025
+
+**IMPORTANTE:** El parametro entropico S tiene rango **[0, 100]**, NO [1.001, 1.0015].
+
+| Parametro | Valor | Descripcion |
+|-----------|-------|-------------|
+| S_MIN | 0.0 | Estado primordial (maxima superposicion) |
+| S_GEOM | 1.001 | Big Bang - transicion pre-geometrica |
+| S_0 | 95.07 | Presente cosmologico |
+| S_MAX | 100.0 | Limite asintotico de Sitter |
+
+**Calibracion:** `S_0 = 100 * (1 - Omega_b) = 95.07` con `Omega_b = 0.0493`
+
 ## Arquitectura Ontologica
 
 El MCMC se organiza en dos regimenes principales definidos sobre la variable discreta entropica **S**:
@@ -9,29 +22,104 @@ El MCMC se organiza en dos regimenes principales definidos sobre la variable dis
 ### Regimenes
 
 | Regimen | Rango S | Descripcion |
-|---------|--------:|-------------|
-| **Pre-BB** | [0, 1.001] | Regimen primordial: 4 colapsos, fijacion de constantes |
-| **Post-BB** | S > 1.001 | Cosmologia observable: expansion, estructuras, observables |
+|---------|---------|-------------|
+| **Pre-Geometrico** | [0, 1.001) | No existe espacio-tiempo clasico |
+| **Post-Big Bang** | [1.001, 95.07] | Cosmologia observable |
 
-### Umbrales Ontologicos (segun Manuscrito Maestro Zenodo)
+### Transiciones Pre-Geometricas (S < 1.001)
 
-| Umbral | S aprox. | Transicion fisica |
-|--------|----------|-------------------|
-| Planck | 0.009 | Escala cuantico-gravitatoria |
-| GUT | 0.099 | Unificacion de fuerzas |
-| EW | 0.999 | Ruptura de simetria electrodebil |
-| **S_BB** | **1.001** | **Confinamiento QCD / Big Bang observable** |
+| Umbral | S | Descripcion |
+|--------|---|-------------|
+| S_PRE_0 | 0.001 | Primera singularidad pre-geom (Planck) |
+| S_PRE_1 | 0.01 | Segunda transicion pre-geom (GUT) |
+| S_PRE_2 | 0.1 | Tercera transicion pre-geom |
+| S_PRE_3 | 0.5 | Cuarta transicion pre-geom (EW) |
+| **S_GEOM** | **1.001** | **Big Bang observable** |
 
-> **CRITICO:** S_BB = 1.001 es el **Big Bang observable** (4to latido/umbral), **NO** "hoy".
-> La evolucion del universo observable ocurre para **S > 1.001**.
+### Epocas Cosmologicas Post-Big Bang (S >= 1.001)
+
+| Umbral | S | z aprox. | Descripcion |
+|--------|---|----------|-------------|
+| S_GEOM | 1.001 | ∞ | Big Bang |
+| S_RECOMB | 1.08 | 1100 | Recombinacion |
+| S_GALAXY | 2.5 | 10 | Primeras galaxias |
+| S_STAR_PEAK | 47.5 | 2 | Pico formacion estelar |
+| S_Z1 | 65.0 | 1 | Referencia SNe Ia |
+| S_Z05 | 84.2 | 0.5 | Era de energia oscura |
+| **S_0** | **95.07** | **0** | **Presente cosmologico** |
+
+> **CRITICO:** S_BB = S_GEOM = 1.001 es el **Big Bang observable**, **NO** "hoy".
+> El presente cosmologico es S_0 = 95.07.
+
+### Mapeo S(z)
+
+La ecuacion maestra basada en termodinamica de Bekenstein-Hawking:
+
+```
+S(z) = S_geom + (S_0 - S_geom) / E(z)^2
+```
+
+donde:
+
+```
+E(z) = H(z)/H_0 = sqrt[Omega_m * (1+z)^3 + Omega_Lambda]
+```
+
+**Propiedades:**
+- S(z=0) = S_0 ~ 95.07 (hoy)
+- S(z->infinito) -> S_GEOM = 1.001 (Big Bang)
+- dS/dz < 0 (monotona decreciente)
+
+### Presente Estratificado
+
+El modelo incluye la nocion de "presente estratificado":
+
+```
+S_local(x) = S_global * sqrt(1 - 2GM/rc^2)
+```
+
+Las islas tensoriales (agujeros negros, cumulos) experimentan S_local < S_global.
+
+### Correspondencia con LCDM
+
+| MCMC | LCDM | Valor |
+|------|------|-------|
+| Masa determinada | Omega_b | 4.93% |
+| MCV (Masa Cuantica Virtual) | Omega_DM | 26.6% |
+| Ep (Espacio Primordial) | Omega_Lambda | 68.5% |
 
 ### Bloques de Implementacion
 
 | Bloque | Rango S | Descripcion |
-|--------|--------:|-------------|
-| Bloque 0 | [0.001, 0.009] | Estado pregeometrico, campo tensional |
-| Bloque I | [0.010, 1.001] | Ley de Cronos: C(S), T(S), Phi_ten(S), N(S) |
-| Bloque II | Post-BB | Cosmologia efectiva: H(z), mu(z), BAO |
+|--------|---------|-------------|
+| Bloque 0 | [0, 0.001] | Estado pregeometrico, campo tensorial |
+| Bloque I | [0.001, 1.001] | Ley de Cronos: C(S), T(S), Phi_ten(S), N(S) |
+| Bloque II | [1.001, 95.07] | Cosmologia efectiva: H(z), mu(z), BAO |
+
+## Modulos Principales
+
+### Core (`src/mcmc/core/`)
+
+- **ontology.py** - Constantes ontologicas, umbrales, regimenes
+- **s_grid.py** - Grids entropicos pre-BB y post-BB
+
+### Ontology (`src/mcmc/ontology/`)
+
+- **s_map.py** - Mapeo entropico S <-> z <-> t <-> a
+- **adrian_field.py** - Campo de Adrian Phi_Ad (regulador tensional)
+- **dual_metric.py** - Metrica Dual Relativa g_uv(S)
+
+### Channels (`src/mcmc/channels/`)
+
+- **rho_lat.py** - Canal latente rho_lat(S) (Masa Cuantica Virtual)
+- **q_dual.py** - Termino de intercambio Q_dual entre canales
+- **lambda_rel.py** - Lambda relativista dinamica
+
+### Growth (`src/mcmc/growth/`)
+
+- **linear_growth.py** - Factor de crecimiento D(a), f(a)
+- **f_sigma8.py** - Observable f*sigma8(z)
+- **mu_eta.py** - Gravedad modificada mu(a), eta(a)
 
 ## Instalacion
 
@@ -88,6 +176,21 @@ Graficas generadas en `outputs/<run_id>/plots/`:
 - `*_residuals.png` - Residuos (modelo - datos)
 - `trace_*.png`, `posterior_*.png` - Diagnosticos de cadena (si existe chain.npy)
 
+### Visualizaciones Ontologicas
+
+```bash
+# Generar graficas de la correccion ontologica
+python reports/generate_ontology_plots.py
+```
+
+Graficas generadas en `reports/figures/`:
+- `01_s_range_epochs.png` - Rango S y epocas cosmologicas
+- `02_s_z_mapping.png` - Mapeo entropico S(z)
+- `03_adrian_field.png` - Campo de Adrian y transiciones
+- `04_channels.png` - Canales rho_lat y Q_dual
+- `05_modified_gravity.png` - Gravedad modificada mu, eta
+- `06_dual_metric.png` - Metrica Dual Relativa
+
 ## Configuracion
 
 Archivo base: `configs/run_base.yaml`
@@ -102,8 +205,9 @@ run:
   nsteps: 500
 
 ontology:
-  S_BB: 1.001        # Big Bang observable (4to umbral)
-  thresholds: [0.009, 0.099, 0.999, 1.001]
+  S_GEOM: 1.001      # Big Bang observable
+  S_0: 95.07         # Presente cosmologico
+  thresholds: [0.001, 0.01, 0.1, 0.5, 1.001]
 
 model:
   backend: "effective"  # effective | block1 | unified
@@ -135,6 +239,59 @@ effective:
 Nota: Los observables H(z), mu(z), BAO se calculan en regimen **post-BB**.
 
 ## Uso Programatico
+
+### Mapeo Entropico
+
+```python
+from mcmc.ontology.s_map import EntropyMap
+import numpy as np
+
+# Crear mapa entropico
+s_map = EntropyMap()
+
+# Mapeo z -> S
+z = np.array([0.0, 0.5, 1.0, 2.0])
+S = s_map.S_of_z(z)
+print(f"S(z=0) = {S[0]:.2f}")  # ~95.07
+
+# Mapeo inverso S -> z
+z_recovered = s_map.z_of_S(S)
+
+# Factor de escala
+a = s_map.a_of_S(S)
+```
+
+### Campo de Adrian
+
+```python
+from mcmc.ontology.adrian_field import AdrianField
+
+# Campo con transiciones canonicas
+field = AdrianField()
+
+# Faz tensorial
+S = 50.0
+phi_ten = field.Phi_ten(S)
+
+# Potencial efectivo
+V = field.V_eff(phi=0.1, S=50.0)
+```
+
+### Canales
+
+```python
+from mcmc.channels.rho_lat import LatentChannel
+from mcmc.channels.q_dual import QDualParams, eta_lat_of_S
+
+# Canal latente
+channel = LatentChannel()
+S_arr = np.linspace(1.001, 95, 100)
+rho_lat = channel.rho_lat_array(S_arr)
+
+# Fracciones de acople
+params = QDualParams()
+eta_lat = eta_lat_of_S(S_arr, params)
+```
 
 ### Construir modelo desde config
 
@@ -196,6 +353,17 @@ mcmc fit --config configs/run_base.yaml
 python scripts/plot_run.py --latest
 ```
 
+### Cobertura de Tests
+
+```
+243 passed, 1 skipped
+```
+
+Tests por modulo:
+- `test_ontology.py` - Mapa entropico, Campo de Adrian, Metrica Dual
+- `test_channels_new.py` - Lambda_rel, Q_dual, canales acoplados
+- `test_growth.py` - Crecimiento lineal, f*sigma8, mu/eta
+
 ## Estructura del Proyecto
 
 ```
@@ -203,7 +371,9 @@ MCMC-Group/
 ├── src/mcmc/
 │   ├── blocks/          # Bloques ontologicos (block0, block1, block2)
 │   ├── core/            # S-grid, ontology, Cronos, Friedmann
-│   ├── channels/        # rho_id, rho_lat
+│   ├── ontology/        # s_map, adrian_field, dual_metric
+│   ├── channels/        # rho_id, rho_lat, q_dual, lambda_rel
+│   ├── growth/          # linear_growth, f_sigma8, mu_eta
 │   ├── observables/     # Distancias, chi2, likelihoods (post-BB)
 │   ├── models/          # API unificada (effective, block1, unified)
 │   ├── pipeline/        # Config, run, inference
@@ -213,6 +383,9 @@ MCMC-Group/
 ├── data/
 │   ├── demo/            # Datos para CI
 │   └── real/            # Datos reales (no versionado)
+├── reports/
+│   ├── figures/         # Visualizaciones PNG
+│   └── *.md             # Informes
 ├── scripts/             # Scripts de ejecucion y plotting
 ├── tests/               # Tests pytest
 └── docs/
@@ -229,10 +402,12 @@ Referencia: [MCMC Maestro en Zenodo](https://zenodo.org/records/15556310)
 
 ## Invariantes del Modelo
 
-1. **Dualidad de masas:** Mp(S) + Ep(S) = 1.0 para todo S (pre-BB)
-2. **Big Bang observable:** S_BB = 1.001 marca la transicion al universo observable
-3. **Observables post-BB:** H(z), mu(z), BAO definidos para z >= 0 (S > S_BB)
-4. **Friedmann normalizado:** H(z=0) = H0 exactamente (en post-BB)
+1. **Rango ontologico:** S in [0, 100] con S_0 ~ 95.07 (presente)
+2. **Big Bang observable:** S_GEOM = 1.001 marca la transicion al universo observable
+3. **Pre-geometrico:** S in [0, 1.001) - transiciones canonicas preservadas
+4. **Observables post-BB:** H(z), mu(z), BAO definidos para z >= 0 (S >= S_GEOM)
+5. **Friedmann normalizado:** H(z=0) = H0 exactamente (en post-BB)
+6. **Correspondencia LCDM:** Omega_b -> masa determinada, Omega_DM -> MCV, Omega_Lambda -> Ep
 
 ## Licencia
 
