@@ -33,7 +33,7 @@ El MCMC se organiza en dos regimenes principales definidos sobre la variable dis
 | S_PRE_0 | 0.001 | Primera singularidad pre-geom (Planck) |
 | S_PRE_1 | 0.01 | Segunda transicion pre-geom (GUT) |
 | S_PRE_2 | 0.1 | Tercera transicion pre-geom |
-| S_PRE_3 | 0.5 | Cuarta transicion pre-geom (EW) |
+| S_PRE_3 | 1.000 | Cuarta transicion pre-geom (EW) |
 | **S_GEOM** | **1.001** | **Big Bang observable** |
 
 ### Epocas Cosmologicas Post-Big Bang (S >= 1.001)
@@ -86,7 +86,7 @@ Las islas tensoriales (agujeros negros, cumulos) experimentan S_local < S_global
 |------|------|-------|
 | Masa determinada | Omega_b | 4.93% |
 | MCV (Masa Cuantica Virtual) | Omega_DM | 26.6% |
-| Ep (Espacio Primordial) | Omega_Lambda | 68.5% |
+| ECV (Espacio Cuantico Virtual) | Omega_Lambda | 68.5% |
 
 ### Bloques de Implementacion
 
@@ -411,7 +411,7 @@ Referencia: [MCMC Maestro en Zenodo](https://zenodo.org/records/15556310)
 
 ## Licencia
 
-MIT
+Leer licencia.
 
 ## Citacion
 
