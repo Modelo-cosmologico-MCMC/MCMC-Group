@@ -6,31 +6,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import numpy as np
-from typing import Callable, Iterator
 
-from mcmc.core.ontology import S_0, S_GEOM
+from mcmc.core.ontology import S_0
 from mcmc.blocks.block5.config import (
-    HilbertSpaceParams,
     HamiltonianParams,
     SimulationParams,
 )
 from mcmc.blocks.block5.hilbert_space import (
     QuditState,
-    QuditBasis,
     create_vacuum,
-    create_superposition,
     create_S_eigenstate,
 )
 from mcmc.blocks.block5.operators import (
-    TensorialOperator,
     S_operator,
     number_operator,
 )
 from mcmc.blocks.block5.hamiltonian import (
     MCMCHamiltonian,
     TimeEvolver,
-    time_evolution,
-    lindblad_evolution,
 )
 
 
@@ -240,7 +233,6 @@ class MCMCSimulator:
 
         # Aggregate statistics
         times = results[0].times
-        len(times)
 
         S_all = np.array([r.S_values for r in results])
         coherence_all = np.array([r.coherence for r in results])
@@ -250,7 +242,6 @@ class MCMCSimulator:
         coherence_mean = np.mean(coherence_all, axis=0)
 
         # Final S distribution
-        QuditBasis(self.hs_params)
         final_S = np.array([r.final_state.S_value() for r in results])
         final_distribution, _ = np.histogram(
             final_S,

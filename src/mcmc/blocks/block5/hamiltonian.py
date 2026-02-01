@@ -108,12 +108,11 @@ def interaction_term(
 
     d = params.d
     g = h_params.g
-    d ** n_sites
 
     # Build operators in tensor product space
     a = annihilation_operator(params).matrix
     a_dag = creation_operator(params).matrix
-    I = np.eye(d)
+    identity = np.eye(d)
 
     # Build a_i^dag a_j + h.c.
     def tensor_op(op_list):
@@ -124,13 +123,13 @@ def interaction_term(
         return result
 
     # a_i^dag a_j
-    ops1 = [I] * n_sites
+    ops1 = [identity] * n_sites
     ops1[site1] = a_dag
     ops1[site2] = a
     term1 = tensor_op(ops1)
 
     # a_j^dag a_i (hermitian conjugate)
-    ops2 = [I] * n_sites
+    ops2 = [identity] * n_sites
     ops2[site1] = a
     ops2[site2] = a_dag
     term2 = tensor_op(ops2)
@@ -169,12 +168,12 @@ class MCMCHamiltonian:
         n_sites = self.params.n_sites
         if n_sites > 1:
             d = self.params.d
-            I = np.eye(d)
+            identity = np.eye(d)
 
             # Tensor product of single-site Hamiltonians
             H_total = np.zeros((d ** n_sites, d ** n_sites), dtype=complex)
             for i in range(n_sites):
-                ops = [I] * n_sites
+                ops = [identity] * n_sites
                 ops[i] = self.H_single
                 H_i = ops[0]
                 for op in ops[1:]:

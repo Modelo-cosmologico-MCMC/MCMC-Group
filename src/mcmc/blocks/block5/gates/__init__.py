@@ -7,15 +7,11 @@ from __future__ import annotations
 import numpy as np
 from scipy.linalg import expm
 
-from mcmc.blocks.block5.config import HilbertSpaceParams, GateParams
-from mcmc.blocks.block5.hilbert_space import QuditState
+from mcmc.blocks.block5.config import HilbertSpaceParams
 from mcmc.blocks.block5.operators import (
     TensorialOperator,
     pauli_x,
     pauli_z,
-    creation_operator,
-    annihilation_operator,
-    S_operator,
 )
 
 
@@ -38,8 +34,8 @@ class QuantumGate(TensorialOperator):
 
     def is_unitary(self, tol: float = 1e-10) -> bool:
         """Check if gate is unitary."""
-        I = np.eye(self.d)
-        return bool(np.allclose(self.matrix @ self.matrix.conj().T, I, atol=tol))
+        identity = np.eye(self.d)
+        return bool(np.allclose(self.matrix @ self.matrix.conj().T, identity, atol=tol))
 
 
 def hadamard_gate(params: HilbertSpaceParams | None = None) -> QuantumGate:
