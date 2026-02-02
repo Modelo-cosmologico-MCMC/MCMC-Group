@@ -95,6 +95,9 @@ Las islas tensoriales (agujeros negros, cumulos) experimentan S_local < S_global
 | Bloque 0 | [0, 0.001] | Estado pregeometrico, campo tensorial |
 | Bloque I | [0.001, 1.001] | Ley de Cronos: C(S), T(S), Phi_ten(S), N(S) |
 | Bloque II | [1.001, 95.07] | Cosmologia efectiva: H(z), mu(z), BAO |
+| Bloque III | [1.001, 95.07] | N-body Cronos: integracion temporal MCMC |
+| Bloque IV | [0, 1.001] | Lattice-gauge: accion de Wilson con β(S) |
+| Bloque V | [0, 100] | Qubit Tensorial: simulacion cuantica MCMC |
 
 ## Modulos Principales
 
@@ -120,6 +123,62 @@ Las islas tensoriales (agujeros negros, cumulos) experimentan S_local < S_global
 - **linear_growth.py** - Factor de crecimiento D(a), f(a)
 - **f_sigma8.py** - Observable f*sigma8(z)
 - **mu_eta.py** - Gravedad modificada mu(a), eta(a)
+
+### Block 3: N-body Cronos (`src/mcmc/blocks/block3/`)
+
+Simulaciones N-body con integracion temporal Cronos (dt_C = dt_N × N(S)).
+
+- **config.py** - Configuracion: TimestepConfig, PoissonConfig, IntegratorConfig
+- **timestep_cronos.py** - Timestep Cronos con funcion de lapso entropico N(S)
+- **poisson_modified.py** - Solver Poisson FFT con MCV (Masa Cuantica Virtual)
+- **cronos_integrator.py** - Integrador N-body completo con CIC deposit/interpolation
+
+#### Perfiles de Halo (`src/mcmc/blocks/block3/profiles/`)
+
+- **nfw.py** - Perfil NFW con extensiones MCMC (rho_s, r_s variables con S)
+- **burkert.py** - Perfil Burkert (cored) para galaxias LSB
+- **zhao_mcmc.py** - Perfil Zhao-MCMC con pendiente interna dependiente de S
+
+#### Analisis (`src/mcmc/blocks/block3/analysis/`)
+
+- **rotation_curves.py** - Curvas de rotacion con contribucion MCV
+- **mass_function.py** - Funcion de masa de halos MCMC vs Press-Schechter
+- **subhalo_count.py** - Conteo de subhalos con supresion por MCV
+- **sparc_comparison.py** - Comparacion con catalogo SPARC
+
+### Block 4: Lattice-Gauge (`src/mcmc/blocks/block4/`)
+
+Simulaciones lattice-gauge con accion de Wilson y acoplamiento β(S).
+
+- **config.py** - Configuracion: LatticeParams, WilsonParams, MonteCarloParams
+- **wilson_action.py** - Accion de Wilson con β(S) dependiente del entropico
+- **monte_carlo.py** - Samplers Metropolis y heat bath para SU(2)/SU(3)
+- **correlators.py** - Correladores: gluon, Polyakov loop, meson
+- **mass_gap.py** - Extraccion del mass gap via ajuste exponencial
+- **s_scan.py** - Escaneo en S para deteccion de transicion de fase
+
+### Block 5: Qubit Tensorial (`src/mcmc/blocks/block5/`)
+
+Simulacion cuantica del MCMC con qudits y operadores tensoriales.
+
+- **config.py** - Configuracion: HilbertSpaceParams, OperatorParams, HamiltonianParams
+- **hilbert_space.py** - Estados qudit con S mapeado a niveles discretos
+- **operators.py** - Operadores tensoriales: creacion/aniquilacion, S, colapso
+- **hamiltonian.py** - Hamiltoniano MCMC con decoherencia Lindblad
+
+#### Gates (`src/mcmc/blocks/block5/gates/`)
+
+- **__init__.py** - Compuertas cuanticas: Hadamard, fase, rotacion, controladas
+
+#### Simulation (`src/mcmc/blocks/block5/simulation/`)
+
+- **__init__.py** - MCMCSimulator con trayectorias cuanticas
+
+### Auxiliary (`src/mcmc/auxiliary/`)
+
+Modulos auxiliares para fisica complementaria.
+
+- **baryogenesis.py** - Bariogenesis via condiciones de Sakharov en S_GEOM
 
 ## Instalacion
 
@@ -319,6 +378,88 @@ print(f"Log-likelihood: {out.loglike:.8f}")
 print(f"Output: {out.outdir}")
 ```
 
+### Block 3: N-body Cronos
+
+```python
+from mcmc.blocks.block3.timestep_cronos import CronosTimestep
+from mcmc.blocks.block3.profiles.zhao_mcmc import ZhaoMCMCProfile
+import numpy as np
+
+# Timestep Cronos con funcion de lapso N(S)
+cronos = CronosTimestep()
+dt_N = 0.01  # Timestep Newtoniano
+S = 50.0     # Entropico actual
+
+dt_C = cronos.dt_cronos(dt_N, S)
+print(f"dt_Cronos = {dt_C:.4f} (N(S) = {cronos.lapse(S):.3f})")
+
+# Perfil Zhao-MCMC con pendiente dependiente de S
+profile = ZhaoMCMCProfile(M_200=1e12, c=10.0, S=50.0)
+r = np.logspace(-1, 2, 100)  # kpc
+rho = profile.density(r)
+v_circ = profile.circular_velocity(r)
+```
+
+### Block 4: Lattice-Gauge
+
+```python
+from mcmc.blocks.block4.wilson_action import beta_of_S, wilson_action
+from mcmc.blocks.block4.s_scan import SScan
+from mcmc.blocks.block4.config import LatticeParams, WilsonParams
+
+# Acoplamiento β(S) - transicion en S_GEOM
+S_values = [0.5, 1.0, 1.001, 2.0, 10.0]
+for S in S_values:
+    beta = beta_of_S(S)
+    print(f"β(S={S}) = {beta:.3f}")
+
+# Escaneo de transicion de fase
+params = LatticeParams(L=8, d=4)
+scan = SScan(params)
+results = scan.scan(S_min=0.5, S_max=2.0, n_points=10)
+```
+
+### Block 5: Qubit Tensorial
+
+```python
+from mcmc.blocks.block5.hilbert_space import QuditState, create_S_eigenstate
+from mcmc.blocks.block5.hamiltonian import MCMCHamiltonian, time_evolution
+from mcmc.blocks.block5.config import HilbertSpaceParams, HamiltonianParams
+
+# Crear estado eigenestado de S
+params = HilbertSpaceParams(d=10, S_min=0.0, S_max=100.0)
+state = create_S_eigenstate(S_target=50.0, params=params)
+print(f"S promedio = {state.S_value():.2f}")
+
+# Hamiltoniano MCMC con decoherencia
+h_params = HamiltonianParams(omega=1.0, V_amplitude=0.5)
+H = MCMCHamiltonian(params, h_params)
+
+# Evolucion temporal
+evolved = time_evolution(state, H, t=1.0, n_steps=10)
+print(f"S final = {evolved.S_value():.2f}")
+```
+
+### Bariogenesis
+
+```python
+from mcmc.auxiliary.baryogenesis import (
+    BaryogenesisParams, cp_violation, baryon_asymmetry, integrate_eta_B
+)
+
+# Parametros de bariogenesis
+params = BaryogenesisParams()
+
+# Violacion CP cerca de S_GEOM
+S = 1.001
+epsilon_CP = cp_violation(S, params)
+print(f"epsilon_CP(S={S}) = {epsilon_CP:.2e}")
+
+# Asimetria barionica integrada
+eta_B = integrate_eta_B(params)
+print(f"eta_B total = {eta_B:.2e}")
+```
+
 ## Datasets
 
 ### Datos Demo (CI)
@@ -356,20 +497,35 @@ python scripts/plot_run.py --latest
 ### Cobertura de Tests
 
 ```
-243 passed, 1 skipped
+291 passed, 1 skipped
 ```
 
 Tests por modulo:
 - `test_ontology.py` - Mapa entropico, Campo de Adrian, Metrica Dual
 - `test_channels_new.py` - Lambda_rel, Q_dual, canales acoplados
 - `test_growth.py` - Crecimiento lineal, f*sigma8, mu/eta
+- `test_block3.py` - Cronos timestep, Poisson, perfiles de halo (14 tests)
+- `test_block4.py` - Wilson action, Monte Carlo, mass gap (9 tests)
+- `test_block5.py` - Hilbert space, operadores, Hamiltoniano (15 tests)
+- `test_auxiliary.py` - Bariogenesis, condiciones de Sakharov (10 tests)
 
 ## Estructura del Proyecto
 
 ```
 MCMC-Group/
 ├── src/mcmc/
-│   ├── blocks/          # Bloques ontologicos (block0, block1, block2)
+│   ├── blocks/
+│   │   ├── block0/      # Estado pregeometrico
+│   │   ├── block1/      # Ley de Cronos
+│   │   ├── block2/      # Cosmologia efectiva
+│   │   ├── block3/      # N-body Cronos
+│   │   │   ├── profiles/    # NFW, Burkert, Zhao-MCMC
+│   │   │   └── analysis/    # Rotation curves, mass function
+│   │   ├── block4/      # Lattice-gauge
+│   │   └── block5/      # Qubit Tensorial
+│   │       ├── gates/       # Compuertas cuanticas
+│   │       └── simulation/  # MCMCSimulator
+│   ├── auxiliary/       # Bariogenesis, fisica complementaria
 │   ├── core/            # S-grid, ontology, Cronos, Friedmann
 │   ├── ontology/        # s_map, adrian_field, dual_metric
 │   ├── channels/        # rho_id, rho_lat, q_dual, lambda_rel
@@ -407,7 +563,14 @@ Referencia: [MCMC Maestro en Zenodo](https://zenodo.org/records/15556310)
 3. **Pre-geometrico:** S in [0, 1.001) - transiciones canonicas preservadas
 4. **Observables post-BB:** H(z), mu(z), BAO definidos para z >= 0 (S >= S_GEOM)
 5. **Friedmann normalizado:** H(z=0) = H0 exactamente (en post-BB)
-6. **Correspondencia LCDM:** Omega_b -> masa determinada, Omega_DM -> MCV, Omega_Lambda -> Ep
+6. **Correspondencia LCDM:** Omega_b -> masa determinada, Omega_DM -> MCV, Omega_Lambda -> ECV
+
+### Invariantes de Bloques Nuevos
+
+7. **Cronos timestep (Block 3):** dt_C = dt_N × N(S) con N(S) > 0 siempre
+8. **Lattice coupling (Block 4):** β(S) transiciona suavemente en S_GEOM
+9. **Hilbert space (Block 5):** Estados normalizados, operadores hermitticos
+10. **Bariogenesis:** η_B concentrado en transicion S_GEOM (Sakharov)
 
 ## Licencia
 

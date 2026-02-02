@@ -87,6 +87,25 @@ class TestMonteCarlo:
         assert np.all(stats.plaquette_history >= 0)
         assert np.all(stats.plaquette_history <= 1)
 
+    def test_su2_heat_bath_no_overflow(self):
+        """su2_heat_bath should not raise overflow warnings for large coupling."""
+        from mcmc.blocks.block4.monte_carlo import HeatBathSampler
+        from mcmc.blocks.block4.wilson_action import WilsonAction
+        from mcmc.blocks.block4.config import LatticeParams, WilsonParams, MonteCarloParams
+        import warnings
+
+        lattice = LatticeParams(Nx=2, Ny=2, Nz=2, Nt=2, gauge_group="SU2")
+        wilson = WilsonParams(beta_0=2.0, use_mcmc_beta=False)
+        mc_params = MonteCarloParams()
+        action = WilsonAction(lattice, wilson)
+        sampler = HeatBathSampler(action, mc_params)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            U = sampler.su2_heat_bath(a=1000.0)
+
+        assert U.shape == (2, 2)
+
 
 class TestMassGap:
     """Tests for mass gap extraction."""
