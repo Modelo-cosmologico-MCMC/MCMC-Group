@@ -14,9 +14,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Block 4 imports
-from mcmc.blocks.block4.config import LatticeParams, WilsonParams
 from mcmc.blocks.block4.wilson_action import beta_of_S
-from mcmc.core.ontology import S_GEOM, S_0
+from mcmc.core.ontology import S_GEOM
 
 # Output directory
 OUTDIR = Path("reports/figures/blocks")

@@ -90,7 +90,7 @@ class TestMonteCarlo:
     def test_su2_heat_bath_no_overflow(self):
         """su2_heat_bath should not raise overflow warnings for large coupling."""
         from mcmc.blocks.block4.monte_carlo import HeatBathSampler
-        from mcmc.blocks.block4.wilson_action import WilsonAction, LatticeConfiguration
+        from mcmc.blocks.block4.wilson_action import WilsonAction
         from mcmc.blocks.block4.config import LatticeParams, WilsonParams, MonteCarloParams
         import warnings
 

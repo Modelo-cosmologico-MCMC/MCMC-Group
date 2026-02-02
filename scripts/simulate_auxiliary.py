@@ -17,7 +17,6 @@ from pathlib import Path
 # Auxiliary imports
 from mcmc.auxiliary.baryogenesis import (
     BaryogenesisParams,
-    BaryogenesisModel,
     sakharov_conditions,
     cp_violation_mcmc,
     bl_violation_rate,
