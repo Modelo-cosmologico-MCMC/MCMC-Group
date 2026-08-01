@@ -1,0 +1,32 @@
+{
+  "records": {
+    "data/demo/bao.csv": {
+      "notes": "Dataset demo para CI; no es un producto observacional real.",
+      "path": "data/demo/bao.csv",
+      "retrieved": "2026-08-01",
+      "sha256": "3894b09ec824a828883b8400570021c464b95d37492aec6ad75fa3d7a4c72242",
+      "size_bytes": 55,
+      "source": "internal-demo",
+      "version": "0.1"
+    },
+    "data/demo/hz.csv": {
+      "notes": "Dataset demo para CI; no es un producto observacional real.",
+      "path": "data/demo/hz.csv",
+      "retrieved": "2026-08-01",
+      "sha256": "d083239224c1982e9a910d69ec7f2a5430506980ccf48dd1959ef1df173eb2df",
+      "size_bytes": 68,
+      "source": "internal-demo",
+      "version": "0.1"
+    },
+    "data/demo/sne.csv": {
+      "notes": "Dataset demo para CI; no es un producto observacional real.",
+      "path": "data/demo/sne.csv",
+      "retrieved": "2026-08-01",
+      "sha256": "b18d9a3b5423eccb229a20109e6c716aff7a3e3a4ab28f587434ba6a8fc4dbfc",
+      "size_bytes": 86,
+      "source": "internal-demo",
+      "version": "0.1"
+    }
+  },
+  "registry_version": 1
+}

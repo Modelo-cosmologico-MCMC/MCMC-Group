@@ -126,6 +126,9 @@ figures/
 data/raw/
 data/external/
 
+# Synthetic data (reproducible from seed via scripts/run_synthetic_recovery.py)
+data/synthetic/
+
 # Real datasets (not committed)
 data/real/*
 !data/real/.gitkeep
