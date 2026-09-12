@@ -23,7 +23,10 @@ dependencies = [
 dev = [
   "pytest>=7.4",
   "pytest-cov>=4.1",
-  "ruff>=0.5",
+  # Version FIJADA: junto con [tool.ruff.lint] forma el contrato de
+  # lint (sin fijarla, cada release de ruff puede poner el CI en rojo
+  # sin que cambie una linea del repositorio).
+  "ruff==0.16.7",
 ]
 
 [project.scripts]
@@ -42,3 +45,15 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
+# CONTRATO DE LINT EXPLICITO: el conjunto de reglas por defecto de ruff
+# crece entre versiones y "pip install ruff" (ultima) hace divergir el
+# CI del entorno local (el fallo del PR #13: 282 hallazgos de reglas
+# I/UP/RUF/SIM aparecidos por deriva de defaults en 0.16.x, la mayoria
+# en codigo preexistente). Las reglas activas se declaran aqui y la
+# version de ruff queda FIJADA en las dependencias de desarrollo, la
+# misma solucion documentada en el repositorio principal MCMC.
+# Ampliar el conjunto (p. ej. adoptar "I") es una decision deliberada
+# con su propio commit, no un efecto colateral de una version nueva.
+select = ["E4", "E7", "E9", "F"]
