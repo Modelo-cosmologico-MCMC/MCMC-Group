@@ -191,6 +191,25 @@ Graficas generadas en `reports/figures/`:
 - `05_modified_gravity.png` - Gravedad modificada mu, eta
 - `06_dual_metric.png` - Metrica Dual Relativa
 
+### Validacion sintetica y componente de fondo
+
+```bash
+# Ajuste sintetico completo: genera BAO+SNe+H(z) con verdad conocida,
+# ajusta MAP + emcee y escribe results/synthetic_recovery/recovery_report.json
+python scripts/run_synthetic_recovery.py --nsteps 1500 --nwalkers 32
+
+# Congelar prediccion de fondo (H(z), distancias, w_eff) con sello sha256
+python scripts/freeze_predictions.py --version v1
+
+# Registro de procedencia de datos externos (hash, version, fuente)
+python scripts/register_provenance.py add <fichero> --source <URL> --version <ver>
+python scripts/register_provenance.py verify
+```
+
+El componente de fondo estilo Cobaya (`mcmc.cobaya_interface`) produce
+H(z), D_M, D_H, D_V, D_L y w_eff(z), y recupera LCDM exactamente en el
+limite `eps=0, z_trans >= z_max`. Ver `docs/implementation/cobaya_background.md`.
+
 ## Configuracion
 
 Archivo base: `configs/run_base.yaml`
