@@ -232,7 +232,11 @@ class HeatBathSampler:
             # High coupling: biased sampling
             while True:
                 x0 = self.rng.uniform(-1, 1)
-                if self.rng.random() < np.sqrt(1 - x0**2) * np.exp(2 * a * x0):
+                # Avoid overflow in exp(2*a*x0) by comparing logarithms instead
+                u = self.rng.random()
+                # rhs = log(sqrt(1 - x0^2)) + 2*a*x0 = 0.5*log1p(-x0^2) + 2*a*x0
+                rhs = 0.5 * np.log1p(-x0**2) + 2 * a * x0
+                if np.log(u) < rhs:
                     break
 
             phi = self.rng.uniform(0, 2 * np.pi)
